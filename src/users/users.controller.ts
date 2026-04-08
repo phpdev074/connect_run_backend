@@ -1,23 +1,16 @@
 import {
-  Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, HttpStatus,
+  Controller, Get, Post, Body, Patch, Param, Delete, HttpStatus,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { ApiBearerAuth, ApiExcludeEndpoint, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
+import { ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
 
 
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
-
-
 
   @ApiExcludeEndpoint()
   @Post()

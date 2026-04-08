@@ -39,6 +39,15 @@ export class User {
   @Prop()
   miles_per_week?: number;
 
+  @Prop()
+  average_pace?: string;
+
+  @Prop({ type: [String], default: [] })
+  preferred_days: string[];
+
+  @Prop({ type: [String], default: [] })
+  modes: string[];
+
   @Prop({ type: [String], default: [] })
   interests: string[];
 

@@ -8,6 +8,11 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { UploadsModule } from './uploads/uploads.module';
 import * as Joi from 'joi';
+import { MissionsModule } from './missions/missions.module';
+import { RunsModule } from './runs/runs.module';
+import { MatchesModule } from './matches/matches.module';
+import { ChatModule } from './chat/chat.module';
+import { VirtualRoomModule } from './virtual-room/virtual-room.module';
 
 @Module({
   imports: [
@@ -32,6 +37,11 @@ import * as Joi from 'joi';
     AuthModule,
     UsersModule,
     UploadsModule,
+    MissionsModule,
+    RunsModule,
+    MatchesModule,
+    ChatModule,
+    VirtualRoomModule,
 
 
 

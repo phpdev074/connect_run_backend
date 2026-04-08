@@ -96,6 +96,37 @@ export class RegisterDto {
   miles_per_week: number;
 
   @ApiProperty({
+    example: '9:18',
+    description: 'Average Pace (min/mile)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  average_pace?: string;
+
+  @ApiProperty({
+    type: [String],
+    example: ['Monday', 'Wednesday', 'Friday'],
+    description: 'Preferred run days',
+    required: false,
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  preferred_days?: string[];
+
+  @ApiProperty({
+    type: [String],
+    example: ['Dating', 'Buddy / Competitor'],
+    description: 'Modes (Dating, Buddy / Competitor, Groups & Community)',
+    required: false,
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  modes?: string[];
+
+  @ApiProperty({
     type: [String],
     example: ['img1.jpg', 'img2.jpg'],
     required: false,
