@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Req, UseGuards, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, UseGuards, HttpStatus, Query } from '@nestjs/common';
 import { RunsService } from './runs.service';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody } from '@nestjs/swagger';
@@ -44,6 +44,18 @@ export class RunsController {
       statusCode: HttpStatus.OK,
       success: true,
       message: 'User stats fetched successfully',
+      data,
+    };
+  }
+
+  @Get('nearby-spots')
+  @ApiOperation({ summary: 'Get AI-picked spots nearby after run completion' })
+  async getNearbySpots(@Query('lat') lat: number, @Query('lng') lng: number) {
+    const data = await this.runsService.getNearbySpots(lat, lng);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Nearby spots fetched successfully',
       data,
     };
   }

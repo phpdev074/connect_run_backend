@@ -3,12 +3,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Run, RunDocument } from './entities/run.entity';
 import { Mission, MissionDocument } from '../missions/entities/mission.entity';
+import { User, UserDocument } from '../users/entities/user.entity';
 
 @Injectable()
 export class RunsService {
   constructor(
     @InjectModel(Run.name) private runModel: Model<RunDocument>,
     @InjectModel(Mission.name) private missionModel: Model<MissionDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
   async recordRun(userId: string, data: any) {
@@ -21,7 +23,14 @@ export class RunsService {
       await this.missionModel.findByIdAndUpdate(data.missionId, { status: 'completed' });
     }
 
-    // Logic to update user stats (total miles, points, streak) could go here or in a separate stats service
+    // Update user stats
+    await this.userModel.findByIdAndUpdate(userId, {
+      $inc: { 
+        total_miles: data.distance,
+        points: data.pointsEarned || 50, // Default 50 pts for a run
+        streak: 1 // Increment streak (simulated)
+      }
+    });
     
     return run;
   }
@@ -41,5 +50,32 @@ export class RunsService {
       totalPoints,
       dayStreak: 5, // Placeholder
     };
+  }
+
+  async getNearbySpots(lat: number, lng: number) {
+    // Mocking AI-picked spots nearby
+    return [
+      {
+        name: 'Blue Bottle Coffee',
+        distance: '0.2 mi away',
+        rating: 4.8,
+        status: 'Open now',
+        type: 'Coffee',
+      },
+      {
+        name: 'Sweetgreen',
+        distance: '0.4 mi away',
+        rating: 4.6,
+        status: 'Open now',
+        type: 'Salad',
+      },
+      {
+        name: 'Central Park Boathouse',
+        distance: '0.1 mi away',
+        rating: 4.4,
+        status: 'Outdoor seating',
+        type: 'Restaurant',
+      },
+    ];
   }
 }

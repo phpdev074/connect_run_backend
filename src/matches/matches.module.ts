@@ -4,13 +4,17 @@ import { MatchesService } from './matches.service';
 import { MatchesController } from './matches.controller';
 import { Match, MatchSchema } from './entities/match.entity';
 import { User, UserSchema } from '../users/entities/user.entity';
+import { RunInvite, RunInviteSchema } from './entities/run-invite.entity';
+import { RewardsModule } from '../rewards/reward.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Match.name, schema: MatchSchema },
       { name: User.name, schema: UserSchema },
+      { name: RunInvite.name, schema: RunInviteSchema },
     ]),
+    RewardsModule,
   ],
   controllers: [MatchesController],
   providers: [MatchesService],

@@ -13,6 +13,8 @@ import { RunsModule } from './runs/runs.module';
 import { MatchesModule } from './matches/matches.module';
 import { ChatModule } from './chat/chat.module';
 import { VirtualRoomModule } from './virtual-room/virtual-room.module';
+import { ReelsModule } from './reels/reels.module';
+import { RewardsModule } from './rewards/reward.module';
 
 @Module({
   imports: [
@@ -42,9 +44,8 @@ import { VirtualRoomModule } from './virtual-room/virtual-room.module';
     MatchesModule,
     ChatModule,
     VirtualRoomModule,
-
-
-
+    ReelsModule,
+    RewardsModule,
   ],
 })
 export class AppModule { }

@@ -102,6 +102,18 @@ export class User {
   @Prop()
   bio?: string;
 
+  @Prop({ default: 0 })
+  points: number;
+
+  @Prop({ default: 0 })
+  total_miles: number;
+
+  @Prop({ default: 0 })
+  streak: number;
+
+  @Prop({ type: [String], default: [] })
+  badges: string[];
+
   @Prop({ default: true })
   isNotification?: boolean;
 
