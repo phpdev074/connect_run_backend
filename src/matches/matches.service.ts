@@ -15,24 +15,70 @@ export class MatchesService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(RunInvite.name) private inviteModel: Model<RunInviteDocument>,
     private readonly rewardsService: RewardsService,
-  ) {}
+  ) { }
 
-  async discover(userId: string, filter: string) {
+  async discover(
+    userId: string,
+    mode?: string,
+    search?: string,
+    page: number = 1,
+    limit: number = 10,
+  ) {
     const userObjectId = new Types.ObjectId(userId);
-    
-    // Find all user IDs that this user has already interacted with (liked, matched, or rejected)
+
+    // Get already interacted users
     const existingInteractions = await this.matchModel.find({
       users: userObjectId,
     }).select('users');
-    
-    const interactedUserIds = existingInteractions.flatMap(m => m.users.filter(u => u.toString() !== userId));
 
-    return this.userModel.find({
+    const interactedUserIds = existingInteractions.flatMap((m) =>
+      m.users.filter((u) => u.toString() !== userId),
+    );
+
+    // Build query
+    const query: any = {
       _id: { $ne: userObjectId, $nin: interactedUserIds },
-      // modes: filter // filter by Dating, Buddy, Group
-    }).limit(10).select('first_name last_name display_name age running_level miles_per_week interests image location');
-  }
+    };
 
+    // ✅ Mode filter
+    if (mode) {
+      query.modes = mode;
+    }
+
+    // ✅ Search filter
+    if (search) {
+      query.$or = [
+        { first_name: { $regex: search, $options: 'i' } },
+        { last_name: { $regex: search, $options: 'i' } },
+        { display_name: { $regex: search, $options: 'i' } },
+        { interests: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    // ✅ Pagination
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.userModel
+        .find(query)
+        .skip(skip)
+        .limit(limit)
+        .select(
+          'first_name last_name display_name age running_level miles_per_week interests image location',
+        ),
+      this.userModel.countDocuments(query),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
   async like(userId: string, targetId: string) {
     const userObjectId = new Types.ObjectId(userId);
     const targetObjectId = new Types.ObjectId(targetId);
@@ -64,7 +110,7 @@ export class MatchesService {
   async superLike(userId: string, targetId: string) {
     // Deduct 5 points for super like
     await this.rewardsService.redeemPoints(userId, 5, `Super Like to user ${targetId}`);
-    
+
     // Perform like logic
     const match = await this.like(userId, targetId);
     // Maybe set a flag for super like if needed
@@ -161,7 +207,7 @@ export class MatchesService {
       await this.userModel.findByIdAndUpdate(invite.senderId, {
         $inc: { points: -invite.pointsRequired }
       });
-      
+
       // Update match status or create a Run session
     }
 

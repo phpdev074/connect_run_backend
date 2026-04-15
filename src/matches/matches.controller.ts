@@ -16,13 +16,29 @@ export class MatchesController {
   @Get('discover')
   @ApiOperation({ summary: 'Discover new users based on mode' })
   @ApiQuery({ name: 'mode', required: false, enum: ['Dating', 'Buddy', 'Group'] })
-  async discover(@Req() req, @Query('mode') mode: string) {
-    const data = await this.matchesService.discover(req.user.id, mode);
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  async discover(
+    @Req() req,
+    @Query('mode') mode: string,
+    @Query('search') search: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+  ) {
+    const data = await this.matchesService.discover(
+      req.user.id,
+      mode,
+      search,
+      Number(page),
+      Number(limit),
+    );
+
     return {
       statusCode: HttpStatus.OK,
       success: true,
       message: 'Discoveries fetched successfully',
-      data,
+      ...data,
     };
   }
 
