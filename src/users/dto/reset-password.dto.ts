@@ -4,6 +4,6 @@ export class ResetPasswordDto {
   @IsEmail()
   email: string;
 
-  @MinLength(6)
+  @MinLength(5)
   newPassword: string;
 }

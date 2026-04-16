@@ -8,11 +8,14 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UserSearchDto } from './dto/user-search.dto';
+import { MailService } from 'src/Mail/mail.service';
+import { buildForgotPasswordEmail } from 'src/Mail/templates/forgot-password.template';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<User>,
+    private readonly mailService: MailService,
   ) { }
 
   async create(data: any) {
@@ -21,6 +24,10 @@ export class UsersService {
 
   async findByEmail(email: string) {
     return this.userModel.findOne({ email });
+  }
+
+  async findByVerificationToken(token: string) {
+    return this.userModel.findOne({ emailVerificationToken: token });
   }
 
   async findById(id: string) {
@@ -98,17 +105,6 @@ export class UsersService {
     await user.save();
 
     return { message: 'Password changed successfully' };
-  }
-
-  async forgotPassword(dto: ForgotPasswordDto) {
-    const user = await this.userModel.findOne({ email: dto.email });
-    if (!user) throw new BadRequestException('Email not registered');
-    const otp = Math.floor(100000 + Math.random() * 9000);
-    user.resetOtp = otp;
-    user.resetOtpExpire = Date.now() + 1000 * 60 * 5;
-    await user.save();
-    console.log('OTP:', otp);
-    return { message: 'OTP sent to email' };
   }
 
   async verifyOtp(dto: VerifyOtpDto) {

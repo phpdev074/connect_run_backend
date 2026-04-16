@@ -125,6 +125,12 @@ export class User {
 
   @Prop({ type: Number })
   resetOtpExpire?: number | null;
+
+  @Prop({ default: false })
+  isEmailVerified?: boolean;
+
+  @Prop()
+  emailVerificationToken?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
