@@ -13,6 +13,7 @@ import { ChangePasswordDto } from 'src/users/dto/change-password.dto';
 import { ForgotPasswordDto } from 'src/users/dto/forgot-password.dto';
 import { VerifyOtpDto } from 'src/users/dto/verify-otp.dto';
 import { ResetPasswordDto } from 'src/users/dto/reset-password.dto';
+import { CheckEmailDto } from './dto/check-email.dto';
 
 
 @ApiTags('Authentication')
@@ -154,6 +155,19 @@ export class AuthController {
       success: true,
       message: data.message || 'OTP sent to email',
       data: null,
+    };
+  }
+
+  // ✅ CHECK EMAIL EXISTS
+  @ApiOperation({ summary: 'Check if email exists' })
+  @Post('check-email')
+  async checkEmail(@Body() dto: CheckEmailDto) {
+    const data = await this.authService.checkEmail(dto.email);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: data.message,
+      data,
     };
   }
 

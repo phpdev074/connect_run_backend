@@ -227,7 +227,7 @@ export class AuthService {
   async forgotPassword(dto: ForgotPasswordDto) {
     const user: any = await this.usersService.findByEmail(dto.email);
     if (!user) throw new BadRequestException('Email not registered');
-    
+
     // Server is on port 3030 per .env
     const resetLink = `http://85.31.234.205:3030/auth/reset-password-page?email=${encodeURIComponent(dto.email)}`;
 
@@ -272,6 +272,15 @@ export class AuthService {
     ).catch(err => console.error('Forgot password email failed:', err));
 
     return { message: 'Password reset link sent to email' };
+  }
+
+  async checkEmail(email: string) {
+    const user = await this.usersService.findByEmail(email);
+    return {
+      exists: !!user,
+      // isEmailVerified: user ? user.isEmailVerified : false,
+      message: user ? 'Email already registered' : 'Email is available',
+    };
   }
 
 
