@@ -64,7 +64,7 @@ export class MatchesService {
         .skip(skip)
         .limit(limit)
         .select(
-          'first_name last_name display_name age running_level miles_per_week interests image location',
+          '-password -resetOtp -resetOtpExpire -isEmailVerified -emailVerificationToken '
         ),
       this.userModel.countDocuments(query),
     ]);
