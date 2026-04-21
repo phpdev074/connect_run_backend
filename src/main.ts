@@ -5,11 +5,15 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import morgan from 'morgan';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 
 
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.useWebSocketAdapter(new IoAdapter(app));
+
   app.use(morgan('dev'));
   app.enableCors();
 
@@ -34,6 +38,7 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
+      docExpansion: 'none',
     },
   });
 

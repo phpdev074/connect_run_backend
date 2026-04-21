@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Req, UseGuards, HttpStatus, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, UseGuards, HttpStatus, Query, Param } from '@nestjs/common';
 import { RunsService } from './runs.service';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody } from '@nestjs/swagger';
@@ -9,7 +9,7 @@ import { RecordRunDto } from './dto/record-run.dto';
 @UseGuards(AuthGuard('jwt'))
 @Controller('runs')
 export class RunsController {
-  constructor(private readonly runsService: RunsService) {}
+  constructor(private readonly runsService: RunsService) { }
 
   @Post('record')
   @ApiOperation({ summary: 'Record a run after completion' })
@@ -56,6 +56,20 @@ export class RunsController {
       statusCode: HttpStatus.OK,
       success: true,
       message: 'Nearby spots fetched successfully',
+      data,
+    };
+  }
+
+  // ✅ NEW API
+  @Get(':runId/path')
+  @ApiOperation({ summary: 'Get run path for map' })
+  async getRunPath(@Param('runId') runId: string) {
+    const data = await this.runsService.getRunPath(runId);
+
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Run path fetched successfully',
       data,
     };
   }

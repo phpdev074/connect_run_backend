@@ -5,6 +5,8 @@ import { Mission, MissionSchema } from '../missions/entities/mission.entity';
 import { User, UserSchema } from '../users/entities/user.entity';
 import { RunsService } from './runs.service';
 import { RunsController } from './runs.controller';
+import { RunLocation, RunLocationSchema } from './entities/runLocation.entity';
+import { RunGateway } from './run.gateway';
 
 @Module({
   imports: [
@@ -12,9 +14,10 @@ import { RunsController } from './runs.controller';
       { name: Run.name, schema: RunSchema },
       { name: Mission.name, schema: MissionSchema },
       { name: User.name, schema: UserSchema },
+      { name: RunLocation.name, schema: RunLocationSchema },
     ]),
   ],
   controllers: [RunsController],
-  providers: [RunsService],
+  providers: [RunsService, RunGateway],
 })
 export class RunsModule { }
