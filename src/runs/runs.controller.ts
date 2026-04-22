@@ -3,6 +3,7 @@ import { RunsService } from './runs.service';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody } from '@nestjs/swagger';
 import { RecordRunDto } from './dto/record-run.dto';
+import { StartRunDto } from './dto/start-run.dto';
 
 @ApiTags('Runs')
 @ApiBearerAuth()
@@ -10,6 +11,19 @@ import { RecordRunDto } from './dto/record-run.dto';
 @Controller('runs')
 export class RunsController {
   constructor(private readonly runsService: RunsService) { }
+
+  @Post('start')
+  @ApiOperation({ summary: 'Start a run (solo or matched) to get run ID for socket tracking' })
+  @ApiBody({ type: StartRunDto })
+  async startRun(@Req() req, @Body() body: StartRunDto) {
+    const data = await this.runsService.startRun(req.user.id, body.matchId);
+    return {
+      statusCode: HttpStatus.CREATED,
+      success: true,
+      message: 'Run started successfully',
+      data,
+    };
+  }
 
   @Post('record')
   @ApiOperation({ summary: 'Record a run after completion' })

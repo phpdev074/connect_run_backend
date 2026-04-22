@@ -8,6 +8,9 @@ export class Run {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: 'Match' })
+  matchId?: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: 'Mission' })
   missionId?: Types.ObjectId;
 

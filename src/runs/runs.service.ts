@@ -16,6 +16,23 @@ export class RunsService {
     private runLocationModel: Model<RunLocationDocument>,
   ) { }
 
+  async startRun(userId: string, matchId?: string) {
+    const runData: any = {
+      userId: new Types.ObjectId(userId),
+      distance: 0,
+      pace: '0:00',
+      duration: '0:00',
+      calories: 0,
+    };
+
+    if (matchId) {
+      runData.matchId = new Types.ObjectId(matchId);
+    }
+
+    const run = await this.runModel.create(runData);
+    return run;
+  }
+
   async recordRun(userId: string, data: any) {
     const run = await this.runModel.create({
       userId: new Types.ObjectId(userId),
