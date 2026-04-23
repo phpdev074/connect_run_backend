@@ -2,12 +2,12 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsEnum, IsString, IsOptional } from 'class-validator';
 
 export class CreateRunInviteDto {
-  @ApiProperty({ example: 'Virtual Run', enum: ['Virtual Run', 'In-Person Run'] })
+  @ApiProperty({ example: 'Virtual_Run', enum: ['Virtual_Run', 'In_Person_Run'] })
   @IsNotEmpty()
-  @IsEnum(['Virtual Run', 'In-Person Run'])
+  @IsEnum(['Virtual_Run', 'In_Person_Run'])
   type: string;
 
-  @ApiProperty({ example: 'Today' })
+  @ApiProperty({ example: '2026-03-28' })
   @IsNotEmpty()
   @IsString()
   date: string;

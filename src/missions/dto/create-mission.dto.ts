@@ -36,4 +36,29 @@ export class CreateMissionDto {
   @IsDateString()
   @IsNotEmpty()
   date: string;
+
+  @ApiProperty({ example: 'Virtual_Run', enum: ['Virtual_Run', 'In_Person_Run'], required: false })
+  @IsString()
+  @IsOptional()
+  runType?: string;
+
+  @ApiProperty({ example: '8:00 AM', required: false })
+  @IsString()
+  @IsOptional()
+  scheduledTime?: string;
+
+  @ApiProperty({ example: 10, required: false })
+  @IsNumber()
+  @IsOptional()
+  pointsRequired?: number;
+
+  @ApiProperty({ example: 'Ready for our first run together?', required: false })
+  @IsString()
+  @IsOptional()
+  message?: string;
+
+  @ApiProperty({ example: 'pending', enum: ['pending', 'accepted', 'declined'], required: false })
+  @IsString()
+  @IsOptional()
+  inviteStatus?: string;
 }

@@ -168,13 +168,7 @@ export class MatchesService {
     if (!receiverId) throw new BadRequestException('Receiver not found in match');
 
     // Point requirements from UI
-    const pointsRequired = body.type === 'Virtual Run' ? 10 : 50;
-
-    // Check sender points
-    const sender = await this.userModel.findById(senderId);
-    if (!sender || sender.points < pointsRequired) {
-      throw new BadRequestException(`Insufficient points. You need ${pointsRequired} pts.`);
-    }
+    const pointsRequired = body.type === 'Virtual_Run' ? 10 : 50;
 
     const invite = await this.inviteModel.create({
       matchId: new Types.ObjectId(matchId),
@@ -203,11 +197,6 @@ export class MatchesService {
     await invite.save();
 
     if (status === 'accepted') {
-      // Deduct points from sender when accepted
-      await this.userModel.findByIdAndUpdate(invite.senderId, {
-        $inc: { points: -invite.pointsRequired }
-      });
-
       // Update match status or create a Run session
     }
 

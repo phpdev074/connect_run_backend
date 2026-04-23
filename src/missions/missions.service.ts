@@ -2,11 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Mission, MissionDocument } from './entities/mission.entity';
+import { Match, MatchDocument } from '../matches/entities/match.entity';
+import { User, UserDocument } from '../users/entities/user.entity';
+import { RunInvite, RunInviteDocument } from '../matches/entities/run-invite.entity';
 
 @Injectable()
 export class MissionsService {
   constructor(
     @InjectModel(Mission.name) private missionModel: Model<MissionDocument>,
+    @InjectModel(Match.name) private matchModel: Model<MatchDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(RunInvite.name) private inviteModel: Model<RunInviteDocument>,
   ) { }
 
   async createMission(userId: string, data: any) {
@@ -17,18 +23,45 @@ export class MissionsService {
   }
 
   async getDailyMission(userId: string, date?: string) {
-    const targetDate = date ? new Date(date) : new Date();
+    const dateStr = date || new Date().toISOString().split('T')[0];
+    const targetDate = new Date(dateStr);
     targetDate.setHours(0, 0, 0, 0);
 
     const nextDay = new Date(targetDate);
     nextDay.setDate(nextDay.getDate() + 1);
 
-    return this.missionModel.findOne({
-      userId: new Types.ObjectId(userId),
-      date: { $gte: targetDate, $lt: nextDay },
-      status: 'pending',
-    }).populate('partnerId', 'first_name last_name display_name image');
+    const [mission, invite] = await Promise.all([
+      this.missionModel.findOne({
+        userId: new Types.ObjectId(userId),
+        date: { $gte: targetDate, $lt: nextDay },
+        status: 'pending',
+      }).populate('partnerId', 'first_name last_name display_name image points total_miles').lean(),
+
+      this.inviteModel.findOne({
+        $or: [{ senderId: new Types.ObjectId(userId) }, { receiverId: new Types.ObjectId(userId) }],
+        date: dateStr,
+        status: 'accepted',
+      }).populate('senderId receiverId', 'first_name last_name display_name image points total_miles').lean()
+    ]);
+
+    let matchedUsers: any[] = [];
+    if (invite) {
+      matchedUsers = [invite.senderId, invite.receiverId];
+    } else if (mission?.partnerId) {
+      const currentUser = await this.userModel.findById(userId)
+        .select('first_name last_name display_name image points total_miles')
+        .lean();
+      matchedUsers = [currentUser, mission.partnerId];
+    }
+
+    return {
+      mission: mission || null,
+      matchedUsers,
+      invite: invite || null
+    };
   }
+
+
 
   async getWeeklyProgram(userId: string, date?: string) {
     const targetDate = date ? new Date(date) : new Date();

@@ -4,6 +4,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { LikeUserDto } from './dto/like-user.dto';
 import { CreateRunInviteDto } from './dto/create-run-invite.dto';
+import { RespondInviteDto } from './dto/respond-invite.dto';
 
 
 @ApiTags('Matches')
@@ -132,12 +133,13 @@ export class MatchesController {
 
   @Post('invite/:inviteId/respond')
   @ApiOperation({ summary: 'Respond to a run invite (accept/decline)' })
-  async respondInvite(@Param('inviteId') inviteId: string, @Req() req, @Body('status') status: 'accepted' | 'declined') {
-    const data = await this.matchesService.respondToInvite(inviteId, req.user.id, status);
+  @ApiBody({ type: RespondInviteDto })
+  async respondInvite(@Param('inviteId') inviteId: string, @Req() req, @Body() body: RespondInviteDto) {
+    const data = await this.matchesService.respondToInvite(inviteId, req.user.id, body.status);
     return {
       statusCode: HttpStatus.OK,
       success: true,
-      message: `Invite status updated to ${status}`,
+      message: `Invite status updated to ${body.status}`,
       data,
     };
   }

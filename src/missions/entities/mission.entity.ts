@@ -26,6 +26,21 @@ export class Mission {
   @Prop({ type: Types.ObjectId, ref: 'User' })
   partnerId?: Types.ObjectId;
 
+  @Prop({ enum: ['Virtual_Run', 'In_Person_Run'] })
+  runType?: string;
+
+  @Prop()
+  scheduledTime?: string;
+
+  @Prop()
+  pointsRequired?: number;
+
+  @Prop()
+  message?: string;
+
+  @Prop({ default: 'pending', enum: ['pending', 'accepted', 'declined'] })
+  inviteStatus?: string;
+
   @Prop({ required: true })
   date: Date;
 

@@ -14,11 +14,11 @@ export class RunInvite {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   receiverId: Types.ObjectId;
 
-  @Prop({ required: true, enum: ['Virtual Run', 'In-Person Run'] })
+  @Prop({ required: true, enum: ['Virtual_Run', 'In_Person_Run'] })
   type: string;
 
   @Prop({ required: true })
-  date: string; // e.g. "2026-03-28" or "Today"
+  date: string; // e.g. "2026-03-28"
 
   @Prop({ required: true })
   time: string; // e.g. "8:00 AM"
