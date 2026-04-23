@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Req, UseGuards, HttpStatus, Query, Param } from '@nestjs/common';
 import { RunsService } from './runs.service';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { RecordRunDto } from './dto/record-run.dto';
 import { StartRunDto } from './dto/start-run.dto';
 
@@ -11,6 +11,19 @@ import { StartRunDto } from './dto/start-run.dto';
 @Controller('runs')
 export class RunsController {
   constructor(private readonly runsService: RunsService) { }
+
+  @Get('setup')
+  @ApiOperation({ summary: 'Get setup details for a run (solo or match)' })
+  @ApiQuery({ name: 'matchId', required: false, type: String })
+  async getRunSetup(@Req() req, @Query('matchId') matchId?: string) {
+    const data = await this.runsService.getRunSetup(req.user.id, matchId);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Run setup fetched successfully',
+      data,
+    };
+  }
 
   @Post('start')
   @ApiOperation({ summary: 'Start a run (solo or matched) to get run ID for socket tracking' })

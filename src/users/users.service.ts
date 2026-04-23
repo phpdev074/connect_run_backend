@@ -26,6 +26,10 @@ export class UsersService {
     return this.userModel.findOne({ email });
   }
 
+  async findByEmailWithPassword(email: string) {
+    return this.userModel.findOne({ email }).select('+password');
+  }
+
   async findByVerificationToken(token: string) {
     return this.userModel.findOne({ emailVerificationToken: token });
   }

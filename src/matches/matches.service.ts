@@ -157,7 +157,7 @@ export class MatchesService {
     return this.matchModel.find({
       users: new Types.ObjectId(userId),
       status: 'matched',
-    }).populate('users', 'first_name last_name display_name image age running_level');
+    }).populate('users');
   }
 
   async sendDetailedInvite(matchId: string, senderId: string, body: CreateRunInviteDto) {
@@ -188,7 +188,7 @@ export class MatchesService {
   }
 
   async findMatchById(matchId: string) {
-    return this.matchModel.findById(matchId).populate('users', 'first_name last_name display_name image age');
+    return this.matchModel.findById(matchId).populate('users');
   }
 
   async respondToInvite(inviteId: string, userId: string, status: 'accepted' | 'declined') {

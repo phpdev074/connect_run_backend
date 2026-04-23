@@ -5,6 +5,7 @@ import { Run, RunDocument } from './entities/run.entity';
 import { Mission, MissionDocument } from '../missions/entities/mission.entity';
 import { User, UserDocument } from '../users/entities/user.entity';
 import { RunLocation, RunLocationDocument } from './entities/runLocation.entity';
+import { Match, MatchDocument } from '../matches/entities/match.entity';
 
 @Injectable()
 export class RunsService {
@@ -14,6 +15,7 @@ export class RunsService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(RunLocation.name)
     private runLocationModel: Model<RunLocationDocument>,
+    @InjectModel(Match.name) private matchModel: Model<MatchDocument>,
   ) { }
 
   async startRun(userId: string, matchId?: string) {
@@ -102,6 +104,22 @@ export class RunsService {
   // =========================
   // ✅ NEW METHODS ADDED
   // =========================
+
+  async getRunSetup(userId: string, matchId?: string) {
+    if (matchId) {
+      const match = await this.matchModel.findById(matchId).populate('users');
+      return {
+        mode: 'match',
+        users: match?.users || []
+      };
+    } else {
+      const user = await this.userModel.findById(userId);
+      return {
+        mode: 'solo',
+        users: user ? [user] : []
+      };
+    }
+  }
 
   async shouldStorePoint(
     runId: string,

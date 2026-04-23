@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Run, RunSchema } from './entities/run.entity';
 import { Mission, MissionSchema } from '../missions/entities/mission.entity';
 import { User, UserSchema } from '../users/entities/user.entity';
+import { Match, MatchSchema } from '../matches/entities/match.entity';
 import { RunsService } from './runs.service';
 import { RunsController } from './runs.controller';
 import { RunLocation, RunLocationSchema } from './entities/runLocation.entity';
@@ -15,6 +16,7 @@ import { RunGateway } from './run.gateway';
       { name: Mission.name, schema: MissionSchema },
       { name: User.name, schema: UserSchema },
       { name: RunLocation.name, schema: RunLocationSchema },
+      { name: Match.name, schema: MatchSchema },
     ]),
   ],
   controllers: [RunsController],

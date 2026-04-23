@@ -60,7 +60,7 @@ export class User {
   @Prop()
   fitness_level: string;
 
-  @Prop()
+  @Prop({select: false })
   password: string;
 
   @Prop()
