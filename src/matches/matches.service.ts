@@ -26,16 +26,21 @@ export class MatchesService {
   ) {
     const userObjectId = new Types.ObjectId(userId);
 
-    // Get already interacted users
+    // Get users I have already liked or where a final status (matched/rejected) exists
+    // We don't exclude people who liked us but we haven't liked back yet.
     const existingInteractions = await this.matchModel.find({
       users: userObjectId,
+      $or: [
+        { likedBy: userObjectId },
+        { status: { $in: ['matched', 'rejected'] } },
+      ],
     }).select('users');
 
     const interactedUserIds = existingInteractions.flatMap((m) =>
       m.users.filter((u) => u.toString() !== userId),
     );
 
-    // Build query
+    // Build query to find new potential matches
     const query: any = {
       _id: { $ne: userObjectId, $nin: interactedUserIds },
     };
@@ -69,8 +74,48 @@ export class MatchesService {
       this.userModel.countDocuments(query),
     ]);
 
+    // Add isRequested: true/false for each user in data
+    const targetUserIds = data.map((u) => u._id);
+    let requestedMatches: { [k: string]: boolean } = {};
+
+    if (targetUserIds.length) {
+      // Find any existing matches between the current user and the discovered users
+      const matches = await this.matchModel.find({
+        users: userObjectId,
+        $or: targetUserIds.map(id => ({ users: id }))
+      });
+
+      // Build a map for quick lookup (targetUserId -> match document)
+      const matchMap = new Map<string, any>();
+      matches.forEach(m => {
+        const otherUser = m.users.find(u => u.toString() !== userId);
+        if (otherUser) {
+          matchMap.set(otherUser.toString(), m);
+        }
+      });
+
+      // For every discover user, check if they have liked the current user
+      targetUserIds.forEach(targetId => {
+        const tidStr = targetId.toString();
+        const match = matchMap.get(tidStr);
+        if (!match) return;
+
+        const likedByStrings = match.likedBy.map(x => x.toString());
+        // isRequested is TRUE if the target user has liked me and I have not liked them back yet
+        if (likedByStrings.includes(tidStr) && !likedByStrings.includes(userId)) {
+          requestedMatches[tidStr] = true;
+        }
+      });
+    }
+
+    // Add isRequested to user objects (do not mutate original data)
+    const dataWithIsRequested = data.map(user => ({
+      ...user.toObject(),
+      isRequested: requestedMatches[user._id.toString()] || false,
+    }));
+
     return {
-      data,
+      data: dataWithIsRequested,
       pagination: {
         total,
         page,
@@ -79,6 +124,7 @@ export class MatchesService {
       },
     };
   }
+  
   async like(userId: string, targetId: string) {
     const userObjectId = new Types.ObjectId(userId);
     const targetObjectId = new Types.ObjectId(targetId);
