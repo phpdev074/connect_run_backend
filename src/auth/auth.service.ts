@@ -114,9 +114,9 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    if (!user.isEmailVerified) {
-      throw new UnauthorizedException('Please verify your email address before logging in.');
-    }
+    // if (!user.isEmailVerified) {
+    //   throw new UnauthorizedException('Please verify your email address before logging in.');
+    // }
 
     const isPasswordValid = await bcrypt.compare(
       dto.password,
@@ -181,9 +181,9 @@ export class AuthService {
     const user: any = await this.usersService.findByEmailWithPassword(dto.email);
     if (!user) throw new UnauthorizedException('Invalid email or password');
 
-    if (!user.isEmailVerified) {
-      throw new UnauthorizedException('Please verify your email address before logging in.');
-    }
+    // if (!user.isEmailVerified) {
+    //   throw new UnauthorizedException('Please verify your email address before logging in.');
+    // }
 
     if (!user.password) {
       throw new UnauthorizedException('Invalid email or password');
