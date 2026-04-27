@@ -14,6 +14,9 @@ export class Match {
   @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
   likedBy: Types.ObjectId[];
 
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
+  superLikedBy: Types.ObjectId[];
+
   @Prop()
   expiresAt?: Date; // 48-hr countdown for virtual run invite
 

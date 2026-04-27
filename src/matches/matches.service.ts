@@ -76,7 +76,7 @@ export class MatchesService {
 
     // Add isRequested: true/false for each user in data
     const targetUserIds = data.map((u) => u._id);
-    let requestedMatches: { [k: string]: boolean } = {};
+    let requestedMatches: { [k: string]: string } = {};
 
     if (targetUserIds.length) {
       // Find any existing matches between the current user and the discovered users
@@ -98,24 +98,39 @@ export class MatchesService {
       targetUserIds.forEach(targetId => {
         const tidStr = targetId.toString();
         const match = matchMap.get(tidStr);
-        if (!match) return;
+        
+        if (!match) {
+          requestedMatches[tidStr] = 'none';
+          return;
+        }
 
         const likedByStrings = match.likedBy.map(x => x.toString());
-        // isRequested is TRUE if the target user has liked me and I have not liked them back yet
-        if (likedByStrings.includes(tidStr) && !likedByStrings.includes(userId)) {
-          requestedMatches[tidStr] = true;
+        const superLikedByStrings = (match.superLikedBy || []).map(x => x.toString());
+
+        // isRequested is TRUE if the target user has liked me
+        // In discover, the current user has not liked the target user yet (filtered out earlier)
+        if (superLikedByStrings.includes(tidStr)) {
+          requestedMatches[tidStr] = 'superliked';
+        } else if (likedByStrings.includes(tidStr)) {
+          requestedMatches[tidStr] = 'liked';
+        } else {
+          requestedMatches[tidStr] = 'none';
         }
       });
     }
 
-    // Add isRequested to user objects (do not mutate original data)
-    const dataWithIsRequested = data.map(user => ({
-      ...user.toObject(),
-      isRequested: requestedMatches[user._id.toString()] || false,
-    }));
+    // Add action and isRequested to user objects
+    const dataWithAction = data.map(user => {
+      const action = requestedMatches[user._id.toString()] || 'none';
+      return {
+        ...user.toObject(),
+        action: action,
+        isRequested: action !== 'none',
+      };
+    });
 
     return {
-      data: dataWithIsRequested,
+      data: dataWithAction,
       pagination: {
         total,
         page,
@@ -125,7 +140,7 @@ export class MatchesService {
     };
   }
   
-  async like(userId: string, targetId: string) {
+  async like(userId: string, targetId: string, isSuperLike = false) {
     const userObjectId = new Types.ObjectId(userId);
     const targetObjectId = new Types.ObjectId(targetId);
 
@@ -137,17 +152,27 @@ export class MatchesService {
       match = await this.matchModel.create({
         users: [userObjectId, targetObjectId],
         likedBy: [userObjectId],
+        superLikedBy: isSuperLike ? [userObjectId] : [],
         status: 'pending',
       });
     } else if (match.status !== 'rejected') {
-      if (!match.likedBy.some(id => id.toString() === userId)) {
+      const alreadyLiked = match.likedBy.some(id => id.toString() === userId);
+      const alreadySuperLiked = match.superLikedBy.some(id => id.toString() === userId);
+
+      if (!alreadyLiked) {
         match.likedBy.push(userObjectId);
-        if (match.likedBy.length === 2) {
-          match.status = 'matched';
-          match.expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48-hr countdown
-        }
-        await match.save();
       }
+      
+      if (isSuperLike && !alreadySuperLiked) {
+        match.superLikedBy.push(userObjectId);
+      }
+
+      if (match.likedBy.length === 2 && match.status !== 'matched') {
+        match.status = 'matched';
+        match.expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48-hr countdown
+      }
+      
+      await match.save();
     }
 
     return match;
@@ -157,9 +182,8 @@ export class MatchesService {
     // Deduct 5 points for super like
     await this.rewardsService.redeemPoints(userId, 5, `Super Like to user ${targetId}`);
 
-    // Perform like logic
-    const match = await this.like(userId, targetId);
-    // Maybe set a flag for super like if needed
+    // Perform like logic with superLike flag
+    const match = await this.like(userId, targetId, true);
     return match;
   }
 
