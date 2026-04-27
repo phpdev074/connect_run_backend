@@ -189,9 +189,9 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    if (!user.isEmailVerified) {
-      throw new UnauthorizedException('Please verify your email');
-    }
+    // if (!user.isEmailVerified) {
+    //   throw new UnauthorizedException('Please verify your email');
+    // }
 
     const match = await bcrypt.compare(dto.password, user?.password);
 
