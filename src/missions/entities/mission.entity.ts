@@ -46,6 +46,9 @@ export class Mission {
 
   @Prop({ default: 'pending', enum: ['pending', 'completed', 'missed'] })
   status: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'Match' })
+  matchId?: Types.ObjectId;
 }
 
 export const MissionSchema = SchemaFactory.createForClass(Mission);

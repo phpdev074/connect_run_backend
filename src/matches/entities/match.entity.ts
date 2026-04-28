@@ -22,6 +22,13 @@ export class Match {
 
   @Prop({ default: false })
   virtualRunInviteSent: boolean;
+
+  @Prop({ type: Types.ObjectId, ref: 'RunInvite', default: null })
+  runInviteId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'Mission', default: null })
+  missionId?: Types.ObjectId;
+
 }
 
 export const MatchSchema = SchemaFactory.createForClass(Match);

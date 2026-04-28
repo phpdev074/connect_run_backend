@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Mission, MissionDocument } from './entities/mission.entity';
@@ -16,10 +16,51 @@ export class MissionsService {
   ) { }
 
   async createMission(userId: string, data: any) {
-    return this.missionModel.create({
+    const currentUser = new Types.ObjectId(userId);
+    const partnerUser = new Types.ObjectId(data.partnerId);
+
+    const match = await this.matchModel.findOne({
+      users: { $all: [currentUser, partnerUser] },
+      status: 'matched',
+    });
+
+    if (!match) {
+      throw new BadRequestException('Match not found');
+    }
+
+    const response = await this.missionModel.create({
+      matchId: new Types.ObjectId(match._id),
       userId: new Types.ObjectId(userId),
       ...data,
     });
+
+    const pointsRequired = data.runType === 'Virtual_Run' ? 10 : 50;
+    const inviteDate = data.date ? data.date.split('T')[0] : new Date().toISOString().split('T')[0];
+
+    const invite = await this.inviteModel.create({
+      matchId: new Types.ObjectId(match._id),
+      senderId: new Types.ObjectId(userId),
+      receiverId: partnerUser,
+      pointsRequired: data.pointsRequired !== undefined ? data.pointsRequired : pointsRequired,
+      type: data.runType || 'Virtual_Run',
+      date: inviteDate,
+      time: data.scheduledTime || '8:00 AM',
+      message: data.message || '',
+      status: data.inviteStatus || 'pending',
+    });
+
+    await this.matchModel.updateOne(
+      { _id: match._id },
+      {
+        $set: {
+          missionId: response._id,
+          runInviteId: invite._id,
+          virtualRunInviteSent: true
+        }
+      }
+    );
+
+    return response;
   }
 
   async getDailyMission(userId: string, date?: string) {

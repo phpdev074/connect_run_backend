@@ -7,6 +7,7 @@ import { RunInvite, RunInviteDocument } from './entities/run-invite.entity';
 import { CreateRunInviteDto } from './dto/create-run-invite.dto';
 import { RewardsService } from '../rewards/rewards.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { Mission, MissionDocument } from 'src/missions/entities/mission.entity';
 
 @Injectable()
 export class MatchesService {
@@ -14,6 +15,7 @@ export class MatchesService {
     @InjectModel(Match.name) private matchModel: Model<MatchDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(RunInvite.name) private inviteModel: Model<RunInviteDocument>,
+    @InjectModel(Mission.name) private missionModel: Model<MissionDocument>,
     private readonly rewardsService: RewardsService,
   ) { }
 
@@ -98,7 +100,7 @@ export class MatchesService {
       targetUserIds.forEach(targetId => {
         const tidStr = targetId.toString();
         const match = matchMap.get(tidStr);
-        
+
         if (!match) {
           requestedMatches[tidStr] = 'none';
           return;
@@ -139,7 +141,7 @@ export class MatchesService {
       },
     };
   }
-  
+
   async like(userId: string, targetId: string, isSuperLike = false) {
     const userObjectId = new Types.ObjectId(userId);
     const targetObjectId = new Types.ObjectId(targetId);
@@ -162,7 +164,7 @@ export class MatchesService {
       if (!alreadyLiked) {
         match.likedBy.push(userObjectId);
       }
-      
+
       if (isSuperLike && !alreadySuperLiked) {
         match.superLikedBy.push(userObjectId);
       }
@@ -171,7 +173,7 @@ export class MatchesService {
         match.status = 'matched';
         match.expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48-hr countdown
       }
-      
+
       await match.save();
     }
 
@@ -224,10 +226,28 @@ export class MatchesService {
   }
 
   async getMatches(userId: string) {
-    return this.matchModel.find({
-      users: new Types.ObjectId(userId),
-      status: 'matched',
-    }).populate('users');
+    let userObjectId = new Types.ObjectId(userId);
+    let data: any = await this.matchModel.find({ users: userObjectId, status: 'matched', }).populate('users').populate("runInviteId");
+
+    return data.map((match) => {
+      const matchObj = match.toObject();
+      if (matchObj.runInviteId && typeof matchObj.runInviteId === 'object') {
+        if (matchObj.runInviteId.status === 'pending') {
+          if (matchObj.runInviteId.senderId && matchObj.runInviteId.senderId.toString() === userId) {
+            matchObj.inviteStatus = 'pending';
+            matchObj.runInviteId.status = 'pending';
+          } else {
+            matchObj.inviteStatus = 'invited';
+            matchObj.runInviteId.status = 'invited';
+          }
+        } else {
+          matchObj.inviteStatus = matchObj.runInviteId.status;
+        }
+      } else {
+        matchObj.inviteStatus = 'none';
+      }
+      return matchObj;
+    });
   }
 
   async sendDetailedInvite(matchId: string, senderId: string, body: CreateRunInviteDto) {

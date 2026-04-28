@@ -6,6 +6,7 @@ import { Match, MatchSchema } from './entities/match.entity';
 import { User, UserSchema } from '../users/entities/user.entity';
 import { RunInvite, RunInviteSchema } from './entities/run-invite.entity';
 import { RewardsModule } from '../rewards/reward.module';
+import { Mission, MissionSchema } from 'src/missions/entities/mission.entity';
 
 @Module({
   imports: [
@@ -13,10 +14,11 @@ import { RewardsModule } from '../rewards/reward.module';
       { name: Match.name, schema: MatchSchema },
       { name: User.name, schema: UserSchema },
       { name: RunInvite.name, schema: RunInviteSchema },
+      { name: Mission.name, schema: MissionSchema },
     ]),
     RewardsModule,
   ],
   controllers: [MatchesController],
   providers: [MatchesService],
 })
-export class MatchesModule {}
+export class MatchesModule { }
