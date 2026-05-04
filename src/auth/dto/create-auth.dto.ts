@@ -157,4 +157,12 @@ export class RegisterDto {
   @IsString()
   @IsOptional()
   bio?: string;
+
+  @ApiProperty({
+    example: 'deviceToken',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  deviceToken?: string;
 }
