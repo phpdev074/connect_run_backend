@@ -3,7 +3,7 @@ import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
 import { Logger, UseGuards } from '@nestjs/common';
 
-@WebSocketGateway({ namespace: 'chat', cors: true })
+@WebSocketGateway({ cors: true })
 export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
@@ -15,7 +15,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   afterInit(server: Server) {
     console.log('\n\n**************************************************');
-    console.log('🚀 CHAT GATEWAY IS ALIVE ON NAMESPACE: chat');
+    console.log('🚀 CHAT GATEWAY IS ALIVE ON THE BASE URL (/)');
     console.log('**************************************************\n\n');
   }
 
