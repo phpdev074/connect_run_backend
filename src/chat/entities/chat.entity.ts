@@ -22,6 +22,9 @@ export class Chat {
 
   @Prop({ default: Date.now })
   lastActivity: Date;
+
+  @Prop()
+  groupName?: string;
 }
 
 export const ChatSchema = SchemaFactory.createForClass(Chat);

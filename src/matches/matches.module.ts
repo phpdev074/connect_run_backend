@@ -20,5 +20,6 @@ import { Mission, MissionSchema } from 'src/missions/entities/mission.entity';
   ],
   controllers: [MatchesController],
   providers: [MatchesService],
+  exports: [MatchesService],
 })
 export class MatchesModule { }

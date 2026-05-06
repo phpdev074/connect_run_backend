@@ -14,10 +14,12 @@ export class ChatController {
   constructor(private readonly chatService: ChatService) { }
 
   @Post()
-  @ApiOperation({ summary: 'Start a new chat or retrieve existing one with a user' })
+  @ApiOperation({ summary: 'Start a new chat (single or group)' })
   @ApiBody({ type: CreateChatDto })
   async createChat(@Req() req, @Body() body: CreateChatDto) {
-    const data = await this.chatService.createChat(req.user.id, body.targetId);
+    // Always include the creator in the participants
+    const participants = Array.from(new Set([req.user.id, ...body.participants]));
+    const data = await this.chatService.createChat(req.user.id, participants, body.groupName);
     return {
       statusCode: HttpStatus.CREATED,
       success: true,

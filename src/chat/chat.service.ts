@@ -3,31 +3,45 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Chat, ChatDocument } from './entities/chat.entity';
 import { Message, MessageDocument } from './entities/message.entity';
+import { MatchesService } from '../matches/matches.service';
+import { FirebaseService } from '../utils/firebase.service';
 
 @Injectable()
 export class ChatService {
   constructor(
     @InjectModel(Chat.name) private chatModel: Model<ChatDocument>,
     @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
-  ) {}
+    private readonly matchesService: MatchesService,
+    private readonly firebaseService: FirebaseService,
+  ) { }
 
-  async createChat(userId: string, targetId: string) {
-    const userObjectId = new Types.ObjectId(userId);
-    const targetObjectId = new Types.ObjectId(targetId);
+  async canUsersChat(userId: string, targetId: string): Promise<boolean> {
+    // Check if users are matched
+    const matches = await this.matchesService.getMatches(userId);
+    return matches.some(match => match.users.some(u => u._id.toString() === targetId));
+  }
 
-    // Check if chat already exists
-    let chat = await this.chatModel.findOne({
-      participants: { $all: [userObjectId, targetObjectId] },
-    });
-
+  async createChat(creatorId: string, participantIds: string[], groupName?: string) {
+    // For single chat, check if matched (if only 2 participants)
+    if (participantIds.length === 2) {
+      const [userA, userB] = participantIds;
+      const canChat = await this.canUsersChat(userA, userB);
+      if (!canChat) throw new ForbiddenException('You can only chat with matched users');
+    }
+    const objectIds = participantIds.map(id => new Types.ObjectId(id));
+    // Check if chat already exists (for single chat)
+    let chat;
+    if (participantIds.length === 2) {
+      chat = await this.chatModel.findOne({ participants: { $all: objectIds, $size: 2 } });
+    }
     if (!chat) {
       chat = await this.chatModel.create({
-        participants: [userObjectId, targetObjectId],
-        isLocked: true, // Default locked until first run
+        participants: objectIds,
+        isLocked: participantIds.length === 2, // Lock only for single chat
         lastActivity: new Date(),
+        ...(groupName ? { groupName } : {}),
       });
     }
-
     return chat.populate('participants', 'first_name last_name display_name image');
   }
 
@@ -49,24 +63,44 @@ export class ChatService {
     return this.messageModel.find({ chatId: new Types.ObjectId(chatId) }).sort({ createdAt: 1 });
   }
 
-  async sendMessage(userId: string, chatId: string, content: string, type: string = 'text') {
+  async sendMessage(userId: string, chatId: string, content: string = 'text', type: string = 'text', metadata?: any) {
     const chat = await this.chatModel.findById(chatId);
+
     if (!chat) throw new NotFoundException('Chat not found');
-    if (chat.isLocked && type !== 'invite') {
-       throw new ForbiddenException('Chat is locked until your first virtual run together');
+    if (!chat.participants.some(p => p.toString() === userId)) {
+      throw new ForbiddenException('You are not a participant in this chat');
     }
+    // if (chat.isLocked && type !== 'invite') {
+    //   throw new ForbiddenException('Chat is locked until your first virtual run together');
+    // }
 
     const message = await this.messageModel.create({
       chatId: new Types.ObjectId(chatId),
       senderId: new Types.ObjectId(userId),
       content,
       type,
+      metadata,
     });
 
     await this.chatModel.findByIdAndUpdate(chatId, {
       lastMessage: content,
       lastActivity: new Date(),
     });
+
+    // Send push notification to all other participants
+    const recipientIds = chat.participants.filter(p => p.toString() !== userId);
+    // TODO: Fetch FCM tokens for recipientIds from your user model or service
+    // Example: const tokens = await this.userService.getFcmTokens(recipientIds);
+    // For each token, send notification
+    // for (const token of tokens) {
+    //   await this.firebaseService.sendPushNotification(token, {
+    //     notification: {
+    //       title: 'New Message',
+    //       body: content,
+    //     },
+    //     data: { chatId: chatId.toString(), type },
+    //   });
+    // }
 
     return message;
   }
@@ -89,5 +123,9 @@ export class ChatService {
       unlockConditionMet: true,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     }, { new: true });
+  }
+
+  async getUserMatches(userId: string) {
+    return this.matchesService.getMatches(userId);
   }
 }
