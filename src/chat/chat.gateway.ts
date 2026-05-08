@@ -67,6 +67,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     }
     const chat = await this.chatService.createChat(data.userId, [data.userId, data.targetId]);
     client.join(chat._id.toString());
+    client.emit('chatJoined', chat);
     return { status: 'joined', chatId: chat._id };
   }
 
@@ -130,7 +131,53 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     }));
   }
 
+  @SubscribeMessage('typing')
+  async handleTyping(@MessageBody() data: { chatId: string, userId: string, isTyping: boolean }, @ConnectedSocket() client: Socket) {
+    this.server.to(data.chatId).emit('userTyping', {
+      userId: data.userId,
+      isTyping: data.isTyping,
+      chatId: data.chatId
+    });
+  }
 
+  @SubscribeMessage('readMessage')
+  async handleReadMessage(@MessageBody() data: { chatId: string, userId: string }, @ConnectedSocket() client: Socket) {
+    try {
+      await this.chatService.markAsRead(data.userId, data.chatId);
+      this.server.to(data.chatId).emit('messagesRead', {
+        chatId: data.chatId,
+        userId: data.userId
+      });
+    } catch (error) {
+      this.logger.error(`Error marking messages as read: ${error.message}`);
+    }
+  }
 
+  @SubscribeMessage('deleteMessage')
+  async handleDeleteMessage(@MessageBody() data: { messageIds: string[], userId: string, chatId: string, mode?: 'me' | 'everyone' }, @ConnectedSocket() client: Socket) {
+    try {
+      const mode = data.mode || 'everyone';
+      const result = await this.chatService.deleteMessages(data.userId, data.messageIds, mode);
 
+      if (mode === 'everyone') {
+        // Notify everyone in the room
+        this.server.to(data.chatId).emit('messagesDeleted', {
+          messageIds: data.messageIds,
+          chatId: data.chatId,
+          mode: 'everyone'
+        });
+      } else {
+        // Only notify the user who deleted for themselves
+        client.emit('messagesDeleted', {
+          messageIds: data.messageIds,
+          chatId: data.chatId,
+          mode: 'me'
+        });
+      }
+      return { ...result, messageIds: data.messageIds };
+    } catch (error) {
+      this.logger.error(`Error deleting messages: ${error.message}`);
+      return { status: 'error', message: error.message };
+    }
+  }
 }

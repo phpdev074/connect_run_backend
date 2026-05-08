@@ -19,6 +19,15 @@ export class Message {
 
   @Prop({ type: Object })
   metadata?: any; // For invite details, etc.
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
+  readBy: Types.ObjectId[];
+
+  @Prop({ default: false })
+  isDeleted: boolean; // Delete for everyone
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
+  deletedFor: Types.ObjectId[]; // Delete for me (list of user IDs)
 }
 
 export const MessageSchema = SchemaFactory.createForClass(Message);

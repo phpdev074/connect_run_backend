@@ -60,7 +60,11 @@ export class ChatService {
     if (chat.isLocked) {
       // Logic to check if condition met (e.g. first run together)
     }
-    return this.messageModel.find({ chatId: new Types.ObjectId(chatId) }).sort({ createdAt: 1 });
+    return this.messageModel.find({ 
+      chatId: new Types.ObjectId(chatId),
+      isDeleted: { $ne: true },
+      deletedFor: { $ne: new Types.ObjectId(userId) }
+    }).sort({ createdAt: 1 });
   }
 
   async sendMessage(userId: string, chatId: string, content: string = 'text', type: string = 'text', metadata?: any) {
@@ -80,6 +84,7 @@ export class ChatService {
       content,
       type,
       metadata,
+      readBy: [new Types.ObjectId(userId)],
     });
 
     await this.chatModel.findByIdAndUpdate(chatId, {
@@ -127,5 +132,42 @@ export class ChatService {
 
   async getUserMatches(userId: string) {
     return this.matchesService.getMatches(userId);
+  }
+
+  async markAsRead(userId: string, chatId: string) {
+    await this.messageModel.updateMany(
+      { 
+        chatId: new Types.ObjectId(chatId), 
+        senderId: { $ne: new Types.ObjectId(userId) },
+        readBy: { $ne: new Types.ObjectId(userId) } 
+      },
+      { $addToSet: { readBy: new Types.ObjectId(userId) } }
+    );
+    return { status: 'success' };
+  }
+
+  async deleteMessages(userId: string, messageIds: string[], mode: 'me' | 'everyone' = 'everyone') {
+    const objectIds = messageIds.map(id => new Types.ObjectId(id));
+
+    if (mode === 'everyone') {
+      // For 'everyone', we need to verify the sender for each message.
+      // Easiest is updateMany where senderId matches.
+      const result = await this.messageModel.updateMany(
+        {
+          _id: { $in: objectIds },
+          senderId: new Types.ObjectId(userId)
+        },
+        { $set: { isDeleted: true } }
+      );
+      return { status: 'success', deletedCount: result.modifiedCount, mode };
+    } else {
+      // mode === 'me'
+      // Add user to deletedFor array for all specified messages
+      const result = await this.messageModel.updateMany(
+        { _id: { $in: objectIds } },
+        { $addToSet: { deletedFor: new Types.ObjectId(userId) } }
+      );
+      return { status: 'success', deletedCount: result.modifiedCount, mode };
+    }
   }
 }
