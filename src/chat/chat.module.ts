@@ -8,6 +8,7 @@ import { ChatGateway } from './chat.gateway';
 import { MatchesModule } from '../matches/matches.module';
 import { FirebaseModule } from '../utils/firebase.module';
 import { FirebaseService } from '../utils/firebase.service';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { FirebaseService } from '../utils/firebase.service';
     ]),
     MatchesModule,
     FirebaseModule,
+    UsersModule,
   ],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway, FirebaseService],

@@ -195,6 +195,8 @@ export class ChatService {
                 last_name: '$$p.last_name',
                 image: '$$p.image',
                 profile_galary: '$$p.profile_galary',
+                isOnline: '$$p.isOnline',
+                lastSeen: '$$p.lastSeen',
               },
             },
           },

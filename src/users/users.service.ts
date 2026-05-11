@@ -141,4 +141,12 @@ export class UsersService {
   findByPin(pin: string) {
     return this.userModel.findOne({ pin });
   }
+
+  async updateOnlineStatus(userId: string, isOnline: boolean) {
+    return this.userModel.findByIdAndUpdate(
+      userId,
+      { isOnline, lastSeen: new Date() },
+      { new: true }
+    );
+  }
 }

@@ -1,6 +1,7 @@
 import { WebSocketGateway, WebSocketServer, SubscribeMessage, MessageBody, ConnectedSocket, OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
+import { UsersService } from '../users/users.service';
 import { Logger, UseGuards } from '@nestjs/common';
 
 @WebSocketGateway({ cors: true })
@@ -11,7 +12,10 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   private readonly logger = new Logger(ChatGateway.name);
   private userSocketMap: Map<string, string> = new Map();
 
-  constructor(private readonly chatService: ChatService) { }
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly usersService: UsersService,
+  ) { }
 
   afterInit(server: Server) {
     console.log('\n\n**************************************************');
@@ -26,9 +30,16 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     console.log(`[SOCKET CONNECT] ID: ${client.id} | User: ${userId || 'Unknown'}`);
     console.log('--------------------------------------------------');
     if (userId) {
-
       this.userSocketMap.set(userId, client.id);
       client.data.userId = userId;
+
+      // Update online status
+      this.usersService.updateOnlineStatus(userId, true).then(() => {
+        this.logger.log(`User ${userId} is now online`);
+        // Notify others (optional, could broadcast to all user's rooms)
+        this.server.emit('userStatusChanged', { userId, isOnline: true });
+      });
+
       this.chatService.getMyChats(userId).then(chats => {
         chats.forEach(chat => {
           console.log(`[SOCKET JOIN] User ${userId} joining room: ${chat._id.toString()}`);
@@ -54,6 +65,11 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     console.log(`[SOCKET DISCONNECT] ID: ${client.id} | User: ${userId || 'Unknown'}`);
     if (userId) {
       this.userSocketMap.delete(userId);
+      // Update online status
+      this.usersService.updateOnlineStatus(userId, false).then(() => {
+        this.logger.log(`User ${userId} is now offline`);
+        this.server.emit('userStatusChanged', { userId, isOnline: false, lastSeen: new Date() });
+      });
     }
   }
 

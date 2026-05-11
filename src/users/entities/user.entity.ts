@@ -131,6 +131,12 @@ export class User {
 
   @Prop()
   emailVerificationToken?: string;
+
+  @Prop({ default: false })
+  isOnline: boolean;
+
+  @Prop()
+  lastSeen?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
