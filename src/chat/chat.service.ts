@@ -142,13 +142,37 @@ export class ChatService {
         },
       },
       {
+        $lookup: {
+          from: 'messages',
+          let: { chatId: '$_id', userId: userObjectId },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$chatId', '$$chatId'] },
+                    { $ne: ['$isDeleted', true] },
+                    { $not: { $in: ['$$userId', { $ifNull: ['$deletedFor', []] }] } },
+                  ],
+                },
+              },
+            },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+          ],
+          as: 'lastMessageDoc',
+        },
+      },
+      {
         $addFields: {
           unreadCount: { $ifNull: [{ $arrayElemAt: ['$unreadMessages.count', 0] }, 0] },
+          lastMessage: { $ifNull: [{ $arrayElemAt: ['$lastMessageDoc.content', 0] }, ''] },
         },
       },
       {
         $project: {
           unreadMessages: 0,
+          lastMessageDoc: 0,
         },
       },
       {
