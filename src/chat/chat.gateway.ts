@@ -41,6 +41,8 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
           lastMessage: chat.lastMessage,
           lastActivity: chat.lastActivity,
           isLocked: chat.isLocked,
+          unreadCount: chat.unreadCount,
+          groupName: chat.groupName,
         })));
       });
     }
@@ -79,13 +81,14 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     const chats = await this.chatService.getMyChats(userId);
 
     const formattedChats = chats.map(chat => {
-      const chatObj = chat.toObject ? chat.toObject() : chat;
       return {
-        chatId: chatObj._id.toString(),
-        participants: chatObj.participants,
-        lastMessage: chatObj.lastMessage || '',
-        lastActivity: chatObj.lastActivity,
-        isLocked: !!chatObj.isLocked,
+        chatId: chat._id.toString(),
+        participants: chat.participants,
+        lastMessage: chat.lastMessage || '',
+        lastActivity: chat.lastActivity,
+        isLocked: !!chat.isLocked,
+        unreadCount: chat.unreadCount,
+        groupName: chat.groupName,
       };
     });
     client.emit('chatList', formattedChats);

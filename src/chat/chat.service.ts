@@ -111,9 +111,73 @@ export class ChatService {
   }
 
   async getMyChats(userId: string) {
-    return this.chatModel.find({
-      participants: new Types.ObjectId(userId),
-    }).populate('participants', 'first_name last_name image profile_galary').sort({ lastActivity: -1 });
+    const userObjectId = new Types.ObjectId(userId);
+    return this.chatModel.aggregate([
+      {
+        $match: {
+          participants: userObjectId,
+        },
+      },
+      {
+        $lookup: {
+          from: 'messages',
+          let: { chatId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$chatId', '$$chatId'] },
+                    { $ne: ['$senderId', userObjectId] },
+                    { $not: { $in: [userObjectId, { $ifNull: ['$readBy', []] }] } },
+                    { $ne: ['$isDeleted', true] },
+                    { $not: { $in: [userObjectId, { $ifNull: ['$deletedFor', []] }] } },
+                  ],
+                },
+              },
+            },
+            { $count: 'count' },
+          ],
+          as: 'unreadMessages',
+        },
+      },
+      {
+        $addFields: {
+          unreadCount: { $ifNull: [{ $arrayElemAt: ['$unreadMessages.count', 0] }, 0] },
+        },
+      },
+      {
+        $project: {
+          unreadMessages: 0,
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'participants',
+          foreignField: '_id',
+          as: 'participants',
+        },
+      },
+      {
+        $addFields: {
+          participants: {
+            $map: {
+              input: '$participants',
+              as: 'p',
+              in: {
+                _id: '$$p._id',
+                first_name: '$$p.first_name',
+                last_name: '$$p.last_name',
+                image: '$$p.image',
+                profile_galary: '$$p.profile_galary',
+              },
+            },
+          },
+        },
+      },
+      { $sort: { lastActivity: -1 } },
+    ]);
   }
 
   async update(chatId: string, updateDto: any) {
