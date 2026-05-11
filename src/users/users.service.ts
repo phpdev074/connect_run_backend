@@ -155,6 +155,46 @@ export class UsersService {
     }
   }
 
+  async cleanupOrphanedData() {
+    // 1. Get all valid user IDs
+    const allUserIds = await this.userModel.distinct('_id');
+    console.log('🚀 ~ UsersService ~ cleanupOrphanedData ~ allUserIds:', allUserIds);
+
+    // 2. Delete orphaned Matches
+    // Matches where at least one user is no longer in the DB
+    await this.matchModel.deleteMany({
+      users: { $elemMatch: { $nin: allUserIds } }
+    });
+
+    // 3. Delete orphaned Chats
+    // Chats where at least one participant is no longer in the DB
+    await this.chatModel.deleteMany({
+      participants: { $elemMatch: { $nin: allUserIds } }
+    });
+
+    // 4. Delete orphaned Run Invites
+    await this.runInviteModel.deleteMany({
+      $or: [
+        { senderId: { $nin: allUserIds } },
+        { receiverId: { $nin: allUserIds } }
+      ]
+    });
+
+    // 5. Delete orphaned Messages
+    // Messages by non-existent users
+    await this.messageModel.deleteMany({
+      senderId: { $nin: allUserIds }
+    });
+
+    // 6. Clean up messages for chats that no longer exist
+    const remainingChatIds = await this.chatModel.distinct('_id');
+    await this.messageModel.deleteMany({
+      chatId: { $nin: remainingChatIds }
+    });
+
+    return { success: true, message: 'Orphaned data cleanup completed' };
+  }
+
   async changePassword(userId: string, dto: ChangePasswordDto) {
     const user = await this.userModel.findById(userId);
     if (!user) throw new NotFoundException('User not found');

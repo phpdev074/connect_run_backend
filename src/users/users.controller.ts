@@ -62,4 +62,15 @@ export class UsersController {
       data,
     };
   }
+
+  @Post('cleanup')
+  async cleanup() {
+    const data = await this.usersService.cleanupOrphanedData();
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Cleanup successful',
+      data,
+    };
+  }
 }
