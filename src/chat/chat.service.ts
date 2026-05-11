@@ -121,17 +121,17 @@ export class ChatService {
       {
         $lookup: {
           from: 'messages',
-          let: { chatId: '$_id' },
+          let: { chatId: '$_id', userId: userObjectId },
           pipeline: [
             {
               $match: {
                 $expr: {
                   $and: [
                     { $eq: ['$chatId', '$$chatId'] },
-                    { $ne: ['$senderId', userObjectId] },
-                    { $not: { $in: [userObjectId, { $ifNull: ['$readBy', []] }] } },
+                    { $ne: ['$senderId', '$$userId'] },
+                    { $not: { $in: ['$$userId', { $ifNull: ['$readBy', []] }] } },
                     { $ne: ['$isDeleted', true] },
-                    { $not: { $in: [userObjectId, { $ifNull: ['$deletedFor', []] }] } },
+                    { $not: { $in: ['$$userId', { $ifNull: ['$deletedFor', []] }] } },
                   ],
                 },
               },
