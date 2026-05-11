@@ -60,7 +60,7 @@ export class ChatService {
     if (chat.isLocked) {
       // Logic to check if condition met (e.g. first run together)
     }
-    return this.messageModel.find({ 
+    return this.messageModel.find({
       chatId: new Types.ObjectId(chatId),
       isDeleted: { $ne: true },
       deletedFor: { $ne: new Types.ObjectId(userId) }
@@ -113,7 +113,7 @@ export class ChatService {
   async getMyChats(userId: string) {
     return this.chatModel.find({
       participants: new Types.ObjectId(userId),
-    }).populate('participants', 'first_name last_name image').sort({ lastActivity: -1 });
+    }).populate('participants', 'first_name last_name image profile_galary').sort({ lastActivity: -1 });
   }
 
   async update(chatId: string, updateDto: any) {
@@ -136,10 +136,10 @@ export class ChatService {
 
   async markAsRead(userId: string, chatId: string) {
     await this.messageModel.updateMany(
-      { 
-        chatId: new Types.ObjectId(chatId), 
+      {
+        chatId: new Types.ObjectId(chatId),
         senderId: { $ne: new Types.ObjectId(userId) },
-        readBy: { $ne: new Types.ObjectId(userId) } 
+        readBy: { $ne: new Types.ObjectId(userId) }
       },
       { $addToSet: { readBy: new Types.ObjectId(userId) } }
     );
