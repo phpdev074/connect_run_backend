@@ -1,4 +1,7 @@
-import { Controller, Get, Post, Body, Param, Req, UseGuards, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Req, Res, UseGuards, HttpStatus, NotFoundException } from '@nestjs/common';
+import * as express from 'express';
+import { createReadStream, statSync, existsSync } from 'fs';
+import { join } from 'path';
 import { ReelsService } from './reels.service';
 import { CreateReelDto } from './dto/create-reel.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -69,5 +72,49 @@ export class ReelsController {
       message: 'Comment added successfully',
       data,
     };
+  }
+
+  @Get('stream/:filename')
+  @ApiOperation({ summary: 'Stream reel video' })
+  async streamVideo(@Param('filename') filename: string, @Req() req: express.Request, @Res() res: express.Response) {
+    const filePath = join(process.cwd(), 'uploads', filename);
+
+    if (!existsSync(filePath)) {
+      throw new NotFoundException('Video file not found');
+    }
+
+    const stat = statSync(filePath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+      if (start >= fileSize) {
+        res.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE).send('Requested range not satisfiable\n' + start + ' >= ' + fileSize);
+        return;
+      }
+
+      const chunksize = end - start + 1;
+      const file = createReadStream(filePath, { start, end });
+      const head = {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': 'video/mp4',
+      };
+
+      res.writeHead(HttpStatus.PARTIAL_CONTENT, head);
+      file.pipe(res);
+    } else {
+      const head = {
+        'Content-Length': fileSize,
+        'Content-Type': 'video/mp4',
+      };
+      res.writeHead(HttpStatus.OK, head);
+      createReadStream(filePath).pipe(res);
+    }
   }
 }
