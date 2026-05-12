@@ -18,13 +18,13 @@ import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
 export class UploadsController {
   @Post('multiple')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Upload multiple images' })
+  @ApiOperation({ summary: 'Upload multiple files (Images and Videos)' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        images: {
+        files: {
           type: 'array',
           items: {
             type: 'string',
@@ -35,7 +35,7 @@ export class UploadsController {
     },
   })
   @UseInterceptors(
-    FilesInterceptor('images', 20, {
+    FilesInterceptor('files', 20, {
       storage: diskStorage({
         destination: './uploads',
         filename: (req, file, callback) => {
@@ -46,8 +46,11 @@ export class UploadsController {
         },
       }),
       fileFilter: (req, file, callback) => {
-        if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
-          return callback(new BadRequestException('Only image files are allowed!'), false);
+        if (!file.originalname.match(/\.(jpg|jpeg|png|gif|mp4|mov|avi|mkv|webm)$/i)) {
+          return callback(
+            new BadRequestException('Only image and video files are allowed!'),
+            false,
+          );
         }
         callback(null, true);
       },
@@ -69,20 +72,20 @@ export class UploadsController {
     return {
       statusCode: HttpStatus.OK,
       success: true,
-      message: 'Images uploaded successfully',
+      message: 'Files uploaded successfully',
       data,
     };
   }
 
   @Post('single')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Upload single image' })
+  @ApiOperation({ summary: 'Upload single file (Image or Video)' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        image: {
+        file: {
           type: 'string',
           format: 'binary',
         },
@@ -90,7 +93,7 @@ export class UploadsController {
     },
   })
   @UseInterceptors(
-    FileInterceptor('image', {
+    FileInterceptor('file', {
       storage: diskStorage({
         destination: './uploads',
         filename: (req, file, callback) => {
@@ -101,8 +104,11 @@ export class UploadsController {
         },
       }),
       fileFilter: (req, file, callback) => {
-        if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
-          return callback(new BadRequestException('Only image files are allowed!'), false);
+        if (!file.originalname.match(/\.(jpg|jpeg|png|gif|mp4|mov|avi|mkv|webm)$/i)) {
+          return callback(
+            new BadRequestException('Only image and video files are allowed!'),
+            false,
+          );
         }
         callback(null, true);
       },
@@ -116,7 +122,7 @@ export class UploadsController {
     return {
       statusCode: HttpStatus.OK,
       success: true,
-      message: 'Image uploaded successfully',
+      message: 'File uploaded successfully',
       data: {
         originalname: file.originalname,
         filename: file.filename,
