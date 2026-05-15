@@ -10,20 +10,23 @@ export class FirebaseService implements OnModuleInit {
   constructor(private configService: ConfigService) {}
 
   onModuleInit() {
-    const credentialPath = this.configService.get<string>('FIREBASE_CREDENTIAL_PATH');
-    if (!credentialPath) {
-      this.logger.error('FIREBASE_CREDENTIAL_PATH is not defined in .env');
+    const projectId = this.configService.get<string>('FIREBASE_PROJECT_ID');
+    const clientEmail = this.configService.get<string>('FIREBASE_CLIENT_EMAIL');
+    const privateKey = this.configService.get<string>('FIREBASE_PRIVATE_KEY');
+
+    if (!projectId || !clientEmail || !privateKey) {
+      this.logger.error('Firebase credentials are not fully defined in .env');
       return;
     }
 
     try {
       if (admin.apps.length === 0) {
-        const absolutePath = path.isAbsolute(credentialPath)
-          ? credentialPath
-          : path.join(process.cwd(), credentialPath);
-
         admin.initializeApp({
-          credential: admin.credential.cert(absolutePath),
+          credential: admin.credential.cert({
+            projectId,
+            clientEmail,
+            privateKey: privateKey.replace(/\\n/g, '\n'),
+          }),
         });
         this.logger.log('Firebase Admin SDK initialized successfully');
       }
