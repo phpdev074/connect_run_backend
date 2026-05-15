@@ -7,6 +7,8 @@ import { User, UserSchema } from '../users/entities/user.entity';
 import { RunInvite, RunInviteSchema } from './entities/run-invite.entity';
 import { RewardsModule } from '../rewards/reward.module';
 import { Mission, MissionSchema } from 'src/missions/entities/mission.entity';
+import { UsersModule } from '../users/users.module';
+
 
 @Module({
   imports: [
@@ -17,7 +19,9 @@ import { Mission, MissionSchema } from 'src/missions/entities/mission.entity';
       { name: Mission.name, schema: MissionSchema },
     ]),
     RewardsModule,
+    UsersModule,
   ],
+
   controllers: [MatchesController],
   providers: [MatchesService],
   exports: [MatchesService],

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Run, RunDocument } from './entities/run.entity';
@@ -27,7 +27,7 @@ export class RunsService {
       calories: 0,
     };
 
-    if (matchId) {
+    if (matchId && Types.ObjectId.isValid(matchId)) {
       runData.matchId = new Types.ObjectId(matchId);
     }
 
@@ -39,10 +39,42 @@ export class RunsService {
     const run = await this.runModel.create({
       userId: new Types.ObjectId(userId),
       ...data,
+      status: 'completed',
     });
 
-    if (data.missionId) {
-      await this.missionModel.findByIdAndUpdate(data.missionId, { status: 'completed' });
+    await this.processRunCompletion(userId, data);
+
+    return run;
+  }
+
+  async endRun(runId: string, userId: string, data: any) {
+    if (!Types.ObjectId.isValid(runId)) {
+      throw new NotFoundException('Invalid Run ID');
+    }
+
+    const run = await this.runModel.findOneAndUpdate(
+      { _id: new Types.ObjectId(runId), userId: new Types.ObjectId(userId) },
+      {
+        ...data,
+        status: 'completed',
+      },
+      { new: true },
+    );
+
+    if (!run) {
+      throw new NotFoundException('Run not found or unauthorized');
+    }
+
+    await this.processRunCompletion(userId, data);
+
+    return run;
+  }
+
+  private async processRunCompletion(userId: string, data: any) {
+    if (data.missionId && Types.ObjectId.isValid(data.missionId)) {
+      await this.missionModel.findByIdAndUpdate(data.missionId, {
+        status: 'completed',
+      });
     }
 
     // Update user stats
@@ -50,10 +82,40 @@ export class RunsService {
       $inc: {
         total_miles: data.distance,
         points: data.pointsEarned || 50, // Default 50 pts for a run
-        streak: 1 // Increment streak (simulated)
-      }
+        streak: 1, // Increment streak (simulated)
+      },
     });
+  }
 
+  async pauseRun(runId: string) {
+    if (!Types.ObjectId.isValid(runId)) {
+      throw new NotFoundException('Invalid Run ID');
+    }
+
+    const run = await this.runModel.findByIdAndUpdate(
+      runId,
+      { status: 'paused' },
+      { new: true },
+    );
+    if (!run) {
+      throw new NotFoundException('Run not found');
+    }
+    return run;
+  }
+
+  async resumeRun(runId: string) {
+    if (!Types.ObjectId.isValid(runId)) {
+      throw new NotFoundException('Invalid Run ID');
+    }
+
+    const run = await this.runModel.findByIdAndUpdate(
+      runId,
+      { status: 'ongoing' },
+      { new: true },
+    );
+    if (!run) {
+      throw new NotFoundException('Run not found');
+    }
     return run;
   }
 
@@ -128,6 +190,9 @@ export class RunsService {
     lng: number,
     timestamp: number,
   ) {
+    const run = await this.runModel.findById(runId);
+    if (!run || run.status !== 'ongoing') return false;
+
     const last = await this.runLocationModel
       .findOne({
         runId: new Types.ObjectId(runId),

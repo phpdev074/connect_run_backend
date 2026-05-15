@@ -13,7 +13,7 @@ class GpsPoint {
 }
 
 export class RecordRunDto {
-  @ApiProperty({ example: '65eaf...', required: false })
+  @ApiProperty({ example: '65eaf1234567890abcdef123', required: false })
   @IsString()
   @IsOptional()
   missionId?: string;

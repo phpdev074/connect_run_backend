@@ -15,6 +15,11 @@ import { ChatModule } from './chat/chat.module';
 import { VirtualRoomModule } from './virtual-room/virtual-room.module';
 import { ReelsModule } from './reels/reels.module';
 import { RewardsModule } from './rewards/reward.module';
+import { FirebaseModule } from './utils/firebase.module';
+import { NotificationsModule } from './notifications/notifications.module';
+
+
+
 
 @Module({
   imports: [
@@ -46,6 +51,10 @@ import { RewardsModule } from './rewards/reward.module';
     VirtualRoomModule,
     ReelsModule,
     RewardsModule,
+    FirebaseModule,
+    NotificationsModule,
+
+
   ],
 })
 export class AppModule { }

@@ -5,6 +5,10 @@ import { Chat, ChatDocument } from './entities/chat.entity';
 import { Message, MessageDocument } from './entities/message.entity';
 import { MatchesService } from '../matches/matches.service';
 import { FirebaseService } from '../utils/firebase.service';
+import { UsersService } from '../users/users.service';
+import { NotificationsService } from '../notifications/notifications.service';
+
+
 
 @Injectable()
 export class ChatService {
@@ -13,7 +17,11 @@ export class ChatService {
     @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
     private readonly matchesService: MatchesService,
     private readonly firebaseService: FirebaseService,
+    private readonly userService: UsersService,
+    private readonly notificationsService: NotificationsService,
   ) { }
+
+
 
   async canUsersChat(userId: string, targetId: string): Promise<boolean> {
     // Check if users are matched
@@ -94,18 +102,27 @@ export class ChatService {
 
     // Send push notification to all other participants
     const recipientIds = chat.participants.filter(p => p.toString() !== userId);
-    // TODO: Fetch FCM tokens for recipientIds from your user model or service
-    // Example: const tokens = await this.userService.getFcmTokens(recipientIds);
-    // For each token, send notification
-    // for (const token of tokens) {
-    //   await this.firebaseService.sendPushNotification(token, {
-    //     notification: {
-    //       title: 'New Message',
-    //       body: content,
-    //     },
-    //     data: { chatId: chatId.toString(), type },
-    //   });
-    // }
+    
+    try {
+      // Fetch sender info for better notification
+      const sender = await this.userService.findById(userId);
+      const senderName = sender?.display_name || sender?.first_name || 'Someone';
+      
+      for (const recipientId of recipientIds) {
+        await this.notificationsService.sendAndSave(
+          recipientId.toString(),
+          `New message from ${senderName}`,
+          content,
+          'CHAT_MESSAGE',
+          { chatId: chatId.toString(), type }
+        );
+      }
+    } catch (error) {
+      // Don't fail message sending if notification fails
+      console.error('Error sending chat notifications:', error);
+    }
+
+
 
     return message;
   }

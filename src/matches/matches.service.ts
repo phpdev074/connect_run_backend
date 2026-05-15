@@ -8,6 +8,11 @@ import { CreateRunInviteDto } from './dto/create-run-invite.dto';
 import { RewardsService } from '../rewards/rewards.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Mission, MissionDocument } from 'src/missions/entities/mission.entity';
+import { FirebaseService } from '../utils/firebase.service';
+import { UsersService } from '../users/users.service';
+import { NotificationsService } from '../notifications/notifications.service';
+
+
 
 @Injectable()
 export class MatchesService {
@@ -17,7 +22,12 @@ export class MatchesService {
     @InjectModel(RunInvite.name) private inviteModel: Model<RunInviteDocument>,
     @InjectModel(Mission.name) private missionModel: Model<MissionDocument>,
     private readonly rewardsService: RewardsService,
+    private readonly firebaseService: FirebaseService,
+    private readonly userService: UsersService,
+    private readonly notificationsService: NotificationsService,
   ) { }
+
+
 
   async discover(
     userId: string,
@@ -142,7 +152,9 @@ export class MatchesService {
     };
   }
 
+
   async like(userId: string, targetId: string, isSuperLike = false) {
+
     const userObjectId = new Types.ObjectId(userId);
     const targetObjectId = new Types.ObjectId(targetId);
 
@@ -150,7 +162,11 @@ export class MatchesService {
       users: { $all: [userObjectId, targetObjectId] },
     });
 
+    let alreadyLiked = false;
+    let isNewInteraction = false;
+
     if (!match) {
+      isNewInteraction = true;
       match = await this.matchModel.create({
         users: [userObjectId, targetObjectId],
         likedBy: [userObjectId],
@@ -158,14 +174,17 @@ export class MatchesService {
         status: 'pending',
       });
     } else if (match.status !== 'rejected') {
-      const alreadyLiked = match.likedBy.some(id => id.toString() === userId);
-      const alreadySuperLiked = match.superLikedBy.some(id => id.toString() === userId);
+      alreadyLiked = match.likedBy.some((id) => id.toString() === userId);
+      const alreadySuperLiked = (match.superLikedBy || []).some(
+        (id) => id.toString() === userId,
+      );
 
       if (!alreadyLiked) {
         match.likedBy.push(userObjectId);
       }
 
       if (isSuperLike && !alreadySuperLiked) {
+        if (!match.superLikedBy) match.superLikedBy = [];
         match.superLikedBy.push(userObjectId);
       }
 
@@ -177,8 +196,58 @@ export class MatchesService {
       await match.save();
     }
 
+    // --- PUSH NOTIFICATION LOGIC ---
+    try {
+      const isNewMatch = match.status === 'matched';
+      const sender = await this.userService.findById(userId);
+      const senderName = sender?.display_name || sender?.first_name || 'Someone';
+
+      if (isNewMatch) {
+        // Notify BOTH users about the new match
+        const receiver = await this.userService.findById(targetId);
+        const receiverName = receiver?.display_name || receiver?.first_name || 'Someone';
+
+        // Notify User A
+        await this.notificationsService.sendAndSave(
+          userId,
+          'New Match!',
+          `You matched with ${receiverName}!`,
+          'MATCH',
+          { matchId: match._id.toString() }
+        );
+        
+        // Notify User B
+        await this.notificationsService.sendAndSave(
+          targetId,
+          'New Match!',
+          `You matched with ${senderName}!`,
+          'MATCH',
+          { matchId: match._id.toString() }
+        );
+      } else if (isNewInteraction || !alreadyLiked) {
+        // Notify ONLY target user that someone liked/superliked them
+        const title = isSuperLike ? 'Super Like!' : 'New Like!';
+        const body = isSuperLike
+          ? `${senderName} super-liked you!`
+          : `Someone liked your profile!`;
+
+        await this.notificationsService.sendAndSave(
+          targetId,
+          title,
+          body,
+          isSuperLike ? 'SUPERLIKE' : 'LIKE',
+          { senderId: userId }
+        );
+      }
+    } catch (error) {
+      console.error('Error sending match notifications:', error);
+    }
+
+    // -------------------------------
+
     return match;
   }
+
 
   async superLike(userId: string, targetId: string) {
     // Deduct 5 points for super like
@@ -268,8 +337,26 @@ export class MatchesService {
       ...body,
     });
 
+    // --- PUSH NOTIFICATION ---
+    try {
+      const sender = await this.userService.findById(senderId);
+      const senderName = sender?.display_name || sender?.first_name || 'Someone';
+      
+      await this.notificationsService.sendAndSave(
+        receiverId,
+        'New Run Invite!',
+        `${senderName} sent you a ${body.type.replace('_', ' ')} invite!`,
+        'RUN_INVITE',
+        { inviteId: invite._id.toString() }
+      );
+    } catch (error) {
+      console.error('Error sending invite notification:', error);
+    }
+
+
     return invite;
   }
+
 
   async findMatchById(matchId: string) {
     return this.matchModel.findById(matchId).populate('users');
@@ -290,6 +377,24 @@ export class MatchesService {
       // Update match status or create a Run session
     }
 
+    // --- PUSH NOTIFICATION ---
+    try {
+      const receiver = await this.userService.findById(userId);
+      const receiverName = receiver?.display_name || receiver?.first_name || 'Someone';
+      
+      await this.notificationsService.sendAndSave(
+        invite.senderId,
+        `Invite ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+        `${receiverName} ${status} your run invite!`,
+        'INVITE_RESPONSE',
+        { inviteId: invite._id.toString(), status }
+      );
+    } catch (error) {
+      console.error('Error sending invite response notification:', error);
+    }
+
+
     return invite;
   }
+
 }

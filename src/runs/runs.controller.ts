@@ -38,6 +38,43 @@ export class RunsController {
     };
   }
 
+  @Post(':runId/pause')
+  @ApiOperation({ summary: 'Pause an ongoing run' })
+  async pauseRun(@Param('runId') runId: string) {
+    const data = await this.runsService.pauseRun(runId);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Run paused successfully',
+      data,
+    };
+  }
+
+  @Post(':runId/resume')
+  @ApiOperation({ summary: 'Resume a paused run' })
+  async resumeRun(@Param('runId') runId: string) {
+    const data = await this.runsService.resumeRun(runId);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Run resumed successfully',
+      data,
+    };
+  }
+
+  @Post(':runId/end')
+  @ApiOperation({ summary: 'End and complete an ongoing run' })
+  @ApiBody({ type: RecordRunDto })
+  async endRun(@Req() req, @Param('runId') runId: string, @Body() body: RecordRunDto) {
+    const data = await this.runsService.endRun(runId, req.user.id, body);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Run completed successfully',
+      data,
+    };
+  }
+
   @Post('record')
   @ApiOperation({ summary: 'Record a run after completion' })
   @ApiBody({ type: RecordRunDto })

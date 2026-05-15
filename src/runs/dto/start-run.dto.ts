@@ -13,49 +13,50 @@ class GpsPoint {
 }
 
 export class StartRunDto {
-  @ApiProperty({ example: '65eaf...', required: false })
+  @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
   matchId?: string;
 
-  @ApiProperty({ example: '65eaf...', required: false })
+  @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
   missionId?: string;
 
-  @ApiProperty({ example: 3.2 })
+  @ApiProperty({ example: 3.2, required: false })
   @IsNumber()
-  @IsNotEmpty()
-  distance: number;
+  @IsOptional()
+  distance?: number;
 
-  @ApiProperty({ example: '9:18' })
+  @ApiProperty({ example: '9:18', required: false })
   @IsString()
-  @IsNotEmpty()
-  pace: string;
+  @IsOptional()
+  pace?: string;
 
-  @ApiProperty({ example: '29:45' })
+  @ApiProperty({ example: '29:45', required: false })
   @IsString()
-  @IsNotEmpty()
-  duration: string;
+  @IsOptional()
+  duration?: string;
 
-  @ApiProperty({ example: 298 })
+  @ApiProperty({ example: 298, required: false })
   @IsNumber()
-  @IsNotEmpty()
-  calories: number;
+  @IsOptional()
+  calories?: number;
 
   @ApiProperty({ example: 32, required: false })
   @IsNumber()
   @IsOptional()
   pointsEarned?: number;
 
-  @ApiProperty({ example: 'Feeling great', enum: ['Feeling great', 'A little tired', 'Something hurts'] })
+  @ApiProperty({ example: 'Feeling great', enum: ['Feeling great', 'A little tired', 'Something hurts'], required: false })
   @IsString()
   @IsOptional()
   healthFeeling?: string;
 
-  @ApiProperty({ type: [GpsPoint] })
+  @ApiProperty({ type: [GpsPoint], required: false })
   @IsArray()
+  @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => GpsPoint)
-  gpsTrack: GpsPoint[];
+  gpsTrack?: GpsPoint[];
 }

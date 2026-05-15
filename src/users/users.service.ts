@@ -248,4 +248,17 @@ export class UsersService {
       { new: true }
     );
   }
+
+  async getFcmTokens(userIds: (string | Types.ObjectId)[]): Promise<string[]> {
+    const users = await this.userModel
+      .find({
+        _id: { $in: userIds },
+        deviceToken: { $exists: true, $ne: null },
+        isNotification: { $ne: false },
+      })
+      .select('deviceToken');
+    return users.map((u) => u.deviceToken as string).filter((t) => !!t);
+  }
+
 }
+

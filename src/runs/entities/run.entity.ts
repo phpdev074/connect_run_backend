@@ -38,6 +38,9 @@ export class Run {
   })
   gpsTrack: { latitude: number; longitude: number }[];
 
+  @Prop({ default: 'ongoing', enum: ['ongoing', 'paused', 'completed'] })
+  status: string;
+
   @Prop({ default: Date.now })
   date: Date;
 }
