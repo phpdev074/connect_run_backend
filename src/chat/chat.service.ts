@@ -95,11 +95,11 @@ export class ChatService {
       readBy: [new Types.ObjectId(userId)],
     });
 
-    await this.chatModel.findByIdAndUpdate(chatId, {
+    const data = await this.chatModel.findByIdAndUpdate(chatId, {
       lastMessage: content,
       lastActivity: new Date(),
     });
-
+    console.log('🚀 ~ ChatService ~ sendMessage ~ data:', data)
     // Send push notification to all other participants
     const recipientIds = chat.participants.filter(p => p.toString() !== userId);
 
@@ -114,7 +114,7 @@ export class ChatService {
           `New message from ${senderName}`,
           content,
           'CHAT_MESSAGE',
-          { chatId: chatId.toString(), type, senderId: userId.toString() }
+          JSON.stringify(data)
         );
       }
     } catch (error) {
