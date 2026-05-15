@@ -13,7 +13,22 @@ export class NotificationsService {
     @InjectModel(Notification.name) private notificationModel: Model<NotificationDocument>,
     private readonly firebaseService: FirebaseService,
     private readonly userService: UsersService,
-  ) {}
+  ) { }
+
+  async sendNotification(userId: string | Types.ObjectId, title: string, message: string, type?: string, data: any = {}) {
+    try {
+      const tokens = await this.userService.getFcmTokens([userId.toString()]);
+      if (tokens.length > 0) {
+        // Merge type into data for push payload
+        const payload = { ...data, notificationType: type };
+        for (const token of tokens) {
+          await this.firebaseService.sendPushNotification(token, title, message, payload);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Failed to send push notification to user ${userId}`, error.stack);
+    }
+  }
 
   async sendAndSave(userId: string | Types.ObjectId, title: string, body: string, type: string, data?: any) {
     // 1. Save to database

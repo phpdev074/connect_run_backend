@@ -102,19 +102,19 @@ export class ChatService {
 
     // Send push notification to all other participants
     const recipientIds = chat.participants.filter(p => p.toString() !== userId);
-    
+
     try {
       // Fetch sender info for better notification
       const sender = await this.userService.findById(userId);
       const senderName = sender?.display_name || sender?.first_name || 'Someone';
-      
+
       for (const recipientId of recipientIds) {
-        await this.notificationsService.sendAndSave(
+        await this.notificationsService.sendNotification(
           recipientId.toString(),
           `New message from ${senderName}`,
           content,
           'CHAT_MESSAGE',
-          { chatId: chatId.toString(), type }
+          { chatId: chatId.toString(), type, senderId: userId.toString() }
         );
       }
     } catch (error) {
