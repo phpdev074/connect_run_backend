@@ -337,13 +337,21 @@ export class MatchesService {
       ...body,
     });
 
+    // Update match with invite ID and status
+    await this.matchModel.findByIdAndUpdate(matchId, {
+      $set: {
+        runInviteId: invite._id,
+        virtualRunInviteSent: body.type === 'Virtual_Run' ? true : match.virtualRunInviteSent
+      }
+    });
+
     // --- PUSH NOTIFICATION ---
     try {
       const sender = await this.userService.findById(senderId);
       const senderName = sender?.display_name || sender?.first_name || 'Someone';
       
       await this.notificationsService.sendAndSave(
-        receiverId,
+        receiverId.toString(),
         'New Run Invite!',
         `${senderName} sent you a ${body.type.replace('_', ' ')} invite!`,
         'RUN_INVITE',

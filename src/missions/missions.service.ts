@@ -48,13 +48,13 @@ export class MissionsService {
       message: data.message || '',
       status: data.inviteStatus || 'pending',
     });
-
+    
     await this.matchModel.updateOne(
       { _id: match._id },
       {
-        $set: {
-          missionId: response._id,
-          runInviteId: invite._id,
+      $set: {
+        missionId: response._id,
+        runInviteId: invite._id,
           virtualRunInviteSent: true
         }
       }
