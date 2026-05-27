@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { JwtModule } from '@nestjs/jwt';
 import { ChatService } from './chat.service';
 import { ChatController } from './chat.controller';
 import { Chat, ChatSchema } from './entities/chat.entity';
@@ -16,6 +17,10 @@ import { UsersModule } from '../users/users.module';
       { name: Chat.name, schema: ChatSchema },
       { name: Message.name, schema: MessageSchema },
     ]),
+    JwtModule.register({
+      secret: process.env.JWT_SECRET || 'supersecretkey',
+      signOptions: { expiresIn: '30d' },
+    }),
     MatchesModule,
     FirebaseModule,
     UsersModule,

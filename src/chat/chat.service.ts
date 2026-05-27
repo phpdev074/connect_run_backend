@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Chat, ChatDocument } from './entities/chat.entity';
@@ -7,6 +7,7 @@ import { MatchesService } from '../matches/matches.service';
 import { FirebaseService } from '../utils/firebase.service';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { JwtService } from '@nestjs/jwt';
 
 
 
@@ -15,13 +16,35 @@ export class ChatService {
   constructor(
     @InjectModel(Chat.name) private chatModel: Model<ChatDocument>,
     @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
+    private readonly jwtService: JwtService,
     private readonly matchesService: MatchesService,
     private readonly firebaseService: FirebaseService,
     private readonly userService: UsersService,
     private readonly notificationsService: NotificationsService,
   ) { }
 
-
+  // JWT
+  async verifyToken(token: string) {
+    try {
+      const tokenData = await this.jwtService.verifyAsync(token);
+      return tokenData;
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        throw new UnauthorizedException({
+          message: 'TOKEN_EXPIRED',
+          expiredAt: error.expiredAt,
+        });
+      }
+      if (error.name === 'JsonWebTokenError') {
+        throw new UnauthorizedException({
+          message: 'TOKEN_EXPIRED',
+        });
+      }
+      throw new UnauthorizedException({
+        message: 'INVALID_TOKEN',
+      });
+    }
+  }
 
   async canUsersChat(userId: string, targetId: string): Promise<boolean> {
     // Check if users are matched
