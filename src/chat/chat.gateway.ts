@@ -26,9 +26,9 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   handleConnection(client: Socket) {
     // Expect userId in handshake query
     const userId = client.handshake.query.userId as string;
-    console.log('--------------------------------------------------');
-    console.log(`[SOCKET CONNECT] ID: ${client.id} | User: ${userId || 'Unknown'}`);
-    console.log('--------------------------------------------------');
+    // console.log('--------------------------------------------------');
+    // console.log(`[SOCKET CONNECT] ID: ${client.id} | User: ${userId || 'Unknown'}`);
+    // console.log('--------------------------------------------------');
     if (userId) {
       this.userSocketMap.set(userId, client.id);
       client.data.userId = userId;
