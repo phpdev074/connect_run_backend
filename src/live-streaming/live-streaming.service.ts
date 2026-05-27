@@ -53,6 +53,7 @@ export class LiveStreamingService {
             if (!matches.length) return;
 
             const hostName = host?.display_name || host?.first_name || 'Someone';
+            this.logger.log(`Notifying ${matches.length} matches about live stream from ${hostName}`);
 
             for (const match of matches) {
                 // Find the other user in the match
@@ -66,7 +67,8 @@ export class LiveStreamingService {
                     'LIVE_START',
                     {
                         channelName,
-                        hostId
+                        hostId,
+                        hostName
                     }
                 );
             }

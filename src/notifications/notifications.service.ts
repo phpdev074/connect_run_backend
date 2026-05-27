@@ -44,8 +44,10 @@ export class NotificationsService {
     try {
       const tokens = await this.userService.getFcmTokens([userId.toString()]);
       if (tokens.length > 0) {
+        // Merge type into data for push payload
+        const payload = { ...data, type };
         for (const token of tokens) {
-          await this.firebaseService.sendPushNotification(token, title, body, data);
+          await this.firebaseService.sendPushNotification(token, title, body, payload);
         }
       }
     } catch (error) {
