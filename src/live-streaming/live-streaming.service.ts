@@ -1,9 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AgoraService } from './agora.service';
 import { LiveEvents } from './live.events';
-
-// import { FollowsService } from '../follows/follows.service';
-// import { PushNotificationService } from '../notification/push-notification.service';
+import { MatchesService } from '../matches/matches.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from '../users/entities/user.entity';
 import { Model } from 'mongoose';
@@ -23,8 +22,8 @@ export class LiveStreamingService {
 
     constructor(
         private readonly agoraService: AgoraService,
-        // private readonly followsService: FollowsService,
-        // private readonly pushNotificationService: PushNotificationService,
+        private readonly matchesService: MatchesService,
+        private readonly notificationsService: NotificationsService,
         @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     ) { }
 
@@ -39,43 +38,42 @@ export class LiveStreamingService {
         };
         this.liveRooms.set(channelName, room);
 
-        // Notify followers
-        // this.notifyFollowers(hostId, channelName);
+        // Notify matches (friends)
+        this.notifyMatches(hostId, channelName);
 
         this.logger.log(`Live started: ${channelName} by host ${hostId}`);
         return room;
     }
 
-    // private async notifyFollowers(hostId: string, channelName: string) {
-    //     try {
-    //         const host = await this.userModel.findById(hostId).select('name').lean();
-    //         const followerIds = await this.followsService.getFollowersIds(hostId);
+    private async notifyMatches(hostId: string, channelName: string) {
+        try {
+            const host = await this.userModel.findById(hostId).select('display_name first_name').lean();
+            const matches = await this.matchesService.getMatches(hostId);
             
-    //         if (!followerIds.length) return;
+            if (!matches.length) return;
 
-    //         const followers = await this.userModel.find({
-    //             _id: { $in: followerIds },
-    //             deviceToken: { $exists: true, $ne: null }
-    //         }).select('deviceToken').lean();
+            const hostName = host?.display_name || host?.first_name || 'Someone';
 
-    //         const tokens = followers.map(f => f.deviceToken).flat().filter((t): t is string => !!t);
+            for (const match of matches) {
+                // Find the other user in the match
+                const otherUser = match.users.find(u => u._id.toString() !== hostId);
+                if (!otherUser) continue;
 
-    //         if (tokens.length) {
-    //             await this.pushNotificationService.sendBulkNotification({
-    //                 tokens,
-    //                 title: 'Live Streaming',
-    //                 body: `${host?.name || 'Someone'} is live now!`,
-    //                 type: 'live',
-    //                 data: {
-    //                     channelName,
-    //                     hostId
-    //                 }
-    //             });
-    //         }
-    //     } catch (error) {
-    //         this.logger.error('Failed to notify followers about live', error);
-    //     }
-    // }
+                await this.notificationsService.sendAndSave(
+                    otherUser._id.toString(),
+                    'Live Stream',
+                    `${hostName} is live now!`,
+                    'LIVE_START',
+                    {
+                        channelName,
+                        hostId
+                    }
+                );
+            }
+        } catch (error) {
+            this.logger.error('Failed to notify matches about live', error);
+        }
+    }
 
     joinLive(channelName: string, userId: string): LiveRoom | null {
         const room = this.liveRooms.get(channelName);
