@@ -58,10 +58,14 @@ export class LiveStreamingController {
 
         const liveRooms = await this.liveStreamingService.getMatchesLiveRooms(userId.toString());
         
+        const message = liveRooms.length > 0
+            ? 'Active live streams of matches fetched successfully'
+            : 'No active live streams found for your matches';
+
         return {
             statusCode: HttpStatus.OK,
             success: true,
-            message: 'Active live streams of matches fetched successfully',
+            message,
             data: liveRooms,
         };
     }
