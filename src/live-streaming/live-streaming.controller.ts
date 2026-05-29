@@ -2,7 +2,10 @@ import { Controller, Get, Query, UseGuards, BadRequestException, Request } from 
 import { AgoraService } from './agora.service';
 import { LiveStreamingService } from './live-streaming.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiExcludeEndpoint } from '@nestjs/swagger';
 
+@ApiTags('Live Streaming')
+@ApiBearerAuth()
 @Controller('live-streaming')
 export class LiveStreamingController {
     constructor(
@@ -10,6 +13,7 @@ export class LiveStreamingController {
         private readonly liveStreamingService: LiveStreamingService,
     ) {}
 
+    @ApiExcludeEndpoint()
     @UseGuards(JwtAuthGuard)
     @Get('token')
     async getToken(
@@ -39,6 +43,7 @@ export class LiveStreamingController {
 
     @UseGuards(JwtAuthGuard)
     @Get('matches-live')
+    @ApiOperation({ summary: 'Get active live streams of matches/friends' })
     async getMatchesLive(@Request() req: any) {
         const userId = req.user._id || req.user.id || req.user.sub;
         if (!userId) {
