@@ -6,6 +6,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from '../users/entities/user.entity';
 import { Model } from 'mongoose';
+import { RtcRole } from 'agora-token';
 
 export interface LiveRoom {
     hostId: string;
@@ -13,6 +14,9 @@ export interface LiveRoom {
     startTime: Date;
     viewers: Set<string>;
     token: string;
+    coHosts: Map<string, number>;    // userId -> Agora UID (these users publish video/audio)
+    joinRequests: Set<string>;       // userIds who requested to join as co-host
+    nextUid: number;                 // counter for assigning unique Agora UIDs to co-hosts
 }
 
 @Injectable()
@@ -35,6 +39,9 @@ export class LiveStreamingService {
             startTime: new Date(),
             viewers: new Set(),
             token,
+            coHosts: new Map(),
+            joinRequests: new Set(),
+            nextUid: 2,
         };
         this.liveRooms.set(channelName, room);
 
@@ -91,6 +98,10 @@ export class LiveStreamingService {
         const room = this.liveRooms.get(channelName);
         if (room) {
             room.viewers.delete(userId);
+            // Also remove from co-hosts if they were one
+            room.coHosts.delete(userId);
+            // Also remove any pending join request
+            room.joinRequests.delete(userId);
             this.logger.log(`User ${userId} left live: ${channelName}`);
         }
     }
@@ -105,12 +116,89 @@ export class LiveStreamingService {
         return false;
     }
 
+    // ──────────────── Guest Co-Host Methods ────────────────
+
+    /**
+     * Viewer requests to join the live as a co-host.
+     * Returns the room if valid, null otherwise.
+     */
+    requestToJoin(channelName: string, userId: string): LiveRoom | null {
+        const room = this.liveRooms.get(channelName);
+        if (!room) return null;
+
+        // Can't request if you're the host
+        if (room.hostId === userId) return null;
+
+        // Can't request if already a co-host
+        if (room.coHosts.has(userId)) return null;
+
+        room.joinRequests.add(userId);
+        this.logger.log(`User ${userId} requested to join live: ${channelName}`);
+        return room;
+    }
+
+    /**
+     * Host approves a guest's join request.
+     * Returns the guest's PUBLISHER token and UID, or null if invalid.
+     */
+    approveGuest(channelName: string, hostId: string, guestId: string): { token: string; uid: number } | null {
+        const room = this.liveRooms.get(channelName);
+        if (!room) return null;
+
+        // Only the host can approve
+        if (room.hostId !== hostId) return null;
+
+        // Guest must have a pending request
+        if (!room.joinRequests.has(guestId)) return null;
+
+        // Assign a unique UID for the co-host
+        const guestUid = room.nextUid++;
+        room.joinRequests.delete(guestId);
+        room.coHosts.set(guestId, guestUid);
+
+        // Generate PUBLISHER token so the guest can broadcast video/audio
+        const guestToken = this.agoraService.generateRtcToken(channelName, guestUid, RtcRole.PUBLISHER);
+
+        this.logger.log(`Host ${hostId} approved guest ${guestId} (UID: ${guestUid}) in channel ${channelName}`);
+        return { token: guestToken, uid: guestUid };
+    }
+
+    /**
+     * Host rejects a guest's join request.
+     */
+    rejectGuest(channelName: string, hostId: string, guestId: string): boolean {
+        const room = this.liveRooms.get(channelName);
+        if (!room || room.hostId !== hostId) return false;
+
+        if (!room.joinRequests.has(guestId)) return false;
+
+        room.joinRequests.delete(guestId);
+        this.logger.log(`Host ${hostId} rejected guest ${guestId} in channel ${channelName}`);
+        return true;
+    }
+
+    /**
+     * Host removes an active co-host.
+     */
+    removeGuest(channelName: string, hostId: string, guestId: string): boolean {
+        const room = this.liveRooms.get(channelName);
+        if (!room || room.hostId !== hostId) return false;
+
+        if (!room.coHosts.has(guestId)) return false;
+
+        room.coHosts.delete(guestId);
+        this.logger.log(`Host ${hostId} removed co-host ${guestId} from channel ${channelName}`);
+        return true;
+    }
+
     getLiveRooms() {
         return Array.from(this.liveRooms.values()).map(room => ({
             hostId: room.hostId,
             channelName: room.channelName,
             startTime: room.startTime,
             viewerCount: room.viewers.size,
+            coHostCount: room.coHosts.size,
+            coHostIds: Array.from(room.coHosts.keys()),
         }));
     }
 
