@@ -16,6 +16,9 @@ export class HostUserDto {
     @ApiProperty({ example: 'https://avatar-url.com/johndoe.jpg', required: false })
     image?: string;
 
+    @ApiProperty({ example: ['http://85.31.234.205:3030/uploads/file-1779878568414-972418455.jpeg'], required: false })
+    profile_galary?: string[];
+
     @ApiProperty({ example: 'male', required: false })
     gender?: string;
 

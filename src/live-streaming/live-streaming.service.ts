@@ -231,6 +231,7 @@ export class LiveStreamingService {
                         last_name: hostUser?.last_name,
                         display_name: hostUser?.display_name,
                         image: hostUser?.image,
+                        profile_galary: hostUser?.profile_galary || [],
                         gender: hostUser?.gender,
                         running_level: hostUser?.running_level,
                     }
