@@ -2,7 +2,8 @@ import { Controller, Get, Query, UseGuards, BadRequestException, Request } from 
 import { AgoraService } from './agora.service';
 import { LiveStreamingService } from './live-streaming.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { ApiBearerAuth, ApiOperation, ApiTags, ApiExcludeEndpoint } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiExcludeEndpoint, ApiResponse } from '@nestjs/swagger';
+import { MatchesLiveResponseDto } from './dto/matches-live-response.dto';
 
 @ApiTags('Live Streaming')
 @ApiBearerAuth()
@@ -44,7 +45,12 @@ export class LiveStreamingController {
     @UseGuards(JwtAuthGuard)
     @Get('matches-live')
     @ApiOperation({ summary: 'Get active live streams of matches/friends' })
-    async getMatchesLive(@Request() req: any) {
+    @ApiResponse({ 
+        status: 200, 
+        description: 'Returns active live rooms of current user matches', 
+        type: MatchesLiveResponseDto 
+    })
+    async getMatchesLive(@Request() req: any): Promise<MatchesLiveResponseDto> {
         const userId = req.user._id || req.user.id || req.user.sub;
         if (!userId) {
             throw new BadRequestException('User ID not found in token');
