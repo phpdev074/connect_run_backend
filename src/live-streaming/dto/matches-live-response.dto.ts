@@ -44,8 +44,14 @@ export class MatchesLiveRoomDto {
 }
 
 export class MatchesLiveResponseDto {
+    @ApiProperty({ example: 200 })
+    statusCode: number;
+
     @ApiProperty({ example: true })
     success: boolean;
+
+    @ApiProperty({ example: 'Active live streams of matches fetched successfully' })
+    message: string;
 
     @ApiProperty({ type: [MatchesLiveRoomDto] })
     data: MatchesLiveRoomDto[];

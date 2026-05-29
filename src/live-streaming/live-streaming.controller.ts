@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards, BadRequestException, Request } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, BadRequestException, Request, HttpStatus } from '@nestjs/common';
 import { AgoraService } from './agora.service';
 import { LiveStreamingService } from './live-streaming.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
@@ -59,7 +59,9 @@ export class LiveStreamingController {
         const liveRooms = await this.liveStreamingService.getMatchesLiveRooms(userId.toString());
         
         return {
+            statusCode: HttpStatus.OK,
             success: true,
+            message: 'Active live streams of matches fetched successfully',
             data: liveRooms,
         };
     }
