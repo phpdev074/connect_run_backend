@@ -191,6 +191,56 @@ export class LiveStreamingService {
         return true;
     }
 
+    /**
+     * Retrieves active live rooms hosted by the user's matched friends.
+     */
+    async getMatchesLiveRooms(userId: string): Promise<any[]> {
+        // 1. Get matches
+        const matches = await this.matchesService.getMatches(userId);
+        if (!matches.length) return [];
+
+        // 2. Extract friend details
+        const friendIdsInfo = matches.map(match => {
+            const otherUser = match.users.find(u => u._id.toString() !== userId);
+            return otherUser ? {
+                id: otherUser._id.toString(),
+                user: otherUser
+            } : null;
+        }).filter(Boolean);
+
+        const friendIdsSet = new Set(friendIdsInfo.map(f => f.id));
+
+        // 3. Find active live rooms hosted by any matched friend
+        const activeRooms = Array.from(this.liveRooms.values());
+        const matchesLive: any[] = [];
+
+        for (const room of activeRooms) {
+            if (friendIdsSet.has(room.hostId)) {
+                const friendDetail = friendIdsInfo.find(f => f.id === room.hostId);
+                const hostUser = friendDetail?.user;
+
+                matchesLive.push({
+                    channelName: room.channelName,
+                    startTime: room.startTime,
+                    viewerCount: room.viewers.size,
+                    coHostCount: room.coHosts.size,
+                    coHostIds: Array.from(room.coHosts.keys()),
+                    host: {
+                        _id: hostUser?._id,
+                        first_name: hostUser?.first_name,
+                        last_name: hostUser?.last_name,
+                        display_name: hostUser?.display_name,
+                        image: hostUser?.image,
+                        gender: hostUser?.gender,
+                        running_level: hostUser?.running_level,
+                    }
+                });
+            }
+        }
+
+        return matchesLive;
+    }
+
     getLiveRooms() {
         return Array.from(this.liveRooms.values()).map(room => ({
             hostId: room.hostId,

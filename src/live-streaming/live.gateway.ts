@@ -104,7 +104,7 @@ export class LiveGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         const room = this.liveService.joinLive(channelName, userId);
         if (!room) {
-            client.emit(LiveEvents.LIVE_ERROR, { message: 'LIVE_ROOM_NOT_FOUND' });
+            client.emit(LiveEvents.LIVE_ERROR, { message: 'This live stream has ended.' });
             return;
         }
 

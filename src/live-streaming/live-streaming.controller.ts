@@ -1,10 +1,14 @@
 import { Controller, Get, Query, UseGuards, BadRequestException, Request } from '@nestjs/common';
 import { AgoraService } from './agora.service';
+import { LiveStreamingService } from './live-streaming.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 @Controller('live-streaming')
 export class LiveStreamingController {
-    constructor(private readonly agoraService: AgoraService) {}
+    constructor(
+        private readonly agoraService: AgoraService,
+        private readonly liveStreamingService: LiveStreamingService,
+    ) {}
 
     @UseGuards(JwtAuthGuard)
     @Get('token')
@@ -30,6 +34,22 @@ export class LiveStreamingController {
             token,
             channelName,
             uid: userId,
+        };
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Get('matches-live')
+    async getMatchesLive(@Request() req: any) {
+        const userId = req.user._id || req.user.id || req.user.sub;
+        if (!userId) {
+            throw new BadRequestException('User ID not found in token');
+        }
+
+        const liveRooms = await this.liveStreamingService.getMatchesLiveRooms(userId.toString());
+        
+        return {
+            success: true,
+            data: liveRooms,
         };
     }
 }
