@@ -16,7 +16,7 @@ export class CommunityService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Match.name) private matchModel: Model<MatchDocument>,
     private readonly notificationsService: NotificationsService,
-  ) {}
+  ) { }
 
   /**
    * Helper to fetch matched user IDs for a given user.
@@ -109,6 +109,21 @@ export class CommunityService {
     return this.communityModel
       .find({
         createdBy: { $ne: userObjectId },
+        members: { $ne: userObjectId },
+      })
+      .populate('createdBy', 'first_name last_name display_name email image')
+      .populate('members', 'first_name last_name display_name email image');
+  }
+
+  /**
+   * Find other users' communities that the logged-in user has joined (is a member of).
+   */
+  async findJoinedOthers(userId: string) {
+    const userObjectId = new Types.ObjectId(userId);
+    return this.communityModel
+      .find({
+        createdBy: { $ne: userObjectId },
+        members: userObjectId,
       })
       .populate('createdBy', 'first_name last_name display_name email image')
       .populate('members', 'first_name last_name display_name email image');
@@ -301,6 +316,29 @@ export class CommunityService {
     return {
       success: true,
       message: 'Successfully left the community',
+    };
+  }
+
+  /**
+   * Join a community.
+   */
+  async join(userId: string, id: string) {
+    const community = await this.communityModel.findById(id);
+    if (!community) {
+      throw new NotFoundException('Community not found');
+    }
+
+    const memberIndex = community.members.findIndex((m) => m.toString() === userId);
+    if (memberIndex !== -1) {
+      throw new BadRequestException('You are already a member of this community');
+    }
+
+    community.members.push(new Types.ObjectId(userId));
+    await community.save();
+
+    return {
+      success: true,
+      message: 'Successfully joined the community',
     };
   }
 }

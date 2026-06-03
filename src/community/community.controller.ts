@@ -9,9 +9,10 @@ import {
   Param,
   Delete,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { CommunityService } from './community.service';
 import { CreateCommunityDto } from './dto/create-community.dto';
 import { UpdateCommunityDto } from './dto/update-community.dto';
@@ -22,7 +23,7 @@ import { AddMembersDto } from './dto/add-members.dto';
 @UseGuards(AuthGuard('jwt'))
 @Controller('community')
 export class CommunityController {
-  constructor(private readonly communityService: CommunityService) {}
+  constructor(private readonly communityService: CommunityService) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new community with optional matched members' })
@@ -37,26 +38,29 @@ export class CommunityController {
     };
   }
 
-  @Get('my')
-  @ApiOperation({ summary: 'Get all communities created by the logged-in user' })
-  async findOwn(@Req() req) {
-    const data = await this.communityService.findOwn(req.user.id);
-    return {
-      statusCode: HttpStatus.OK,
-      success: true,
-      message: 'My communities fetched successfully',
-      data,
-    };
-  }
+  @Get()
+  @ApiOperation({ summary: 'Get communities by type (my, joined, all)' })
+  @ApiQuery({ name: 'type', required: false, enum: ['my', 'joined', 'all'], description: 'Type of communities to retrieve' })
+  async getCommunities(@Req() req, @Query('type') type?: string) {
+    let data;
+    let message = 'Communities fetched successfully';
 
-  @Get('others')
-  @ApiOperation({ summary: "Get all other users' communities (excluding own)" })
-  async findOthers(@Req() req) {
-    const data = await this.communityService.findAllExceptOwn(req.user.id);
+    if (type === 'my') {
+      data = await this.communityService.findOwn(req.user.id);
+      message = 'My communities fetched successfully';
+    } else if (type === 'joined') {
+      data = await this.communityService.findJoinedOthers(req.user.id);
+      message = 'Other joined communities fetched successfully';
+    } else {
+      // Default to 'all' (unjoined other communities)
+      data = await this.communityService.findAllExceptOwn(req.user.id);
+      message = 'Unjoined communities fetched successfully';
+    }
+
     return {
       statusCode: HttpStatus.OK,
       success: true,
-      message: 'Other communities fetched successfully',
+      message,
       data,
     };
   }
@@ -131,6 +135,18 @@ export class CommunityController {
       statusCode: HttpStatus.OK,
       success: true,
       message: 'Left community successfully',
+      data,
+    };
+  }
+
+  @Post(':id/join')
+  @ApiOperation({ summary: 'Join a community' })
+  async join(@Param('id') id: string, @Req() req) {
+    const data = await this.communityService.join(req.user.id, id);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Joined community successfully',
       data,
     };
   }
