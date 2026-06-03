@@ -18,6 +18,7 @@ import { RewardsModule } from './rewards/reward.module';
 import { FirebaseModule } from './utils/firebase.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { LiveStreamingModule } from './live-streaming/live-streaming.module';
+import { CommunityModule } from './community/community.module';
 
 
 
@@ -54,7 +55,8 @@ import { LiveStreamingModule } from './live-streaming/live-streaming.module';
     RewardsModule,
     FirebaseModule,
     NotificationsModule,
-    LiveStreamingModule
+    LiveStreamingModule,
+    CommunityModule
 
   ],
 })
