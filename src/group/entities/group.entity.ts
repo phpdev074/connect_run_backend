@@ -1,10 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Types, Document } from 'mongoose';
 
-export type CommunityDocument = Community & Document;
+export type GroupDocument = Group & Document;
 
 @Schema({ timestamps: true })
-export class Community {
+export class Group {
   @Prop({ required: true })
   name: string;
 
@@ -13,6 +13,12 @@ export class Community {
 
   @Prop()
   image?: string;
+
+  @Prop()
+  paceRange?: string;
+
+  @Prop()
+  maxMembers?: number;
 
   @Prop()
   visibility?: string;
@@ -24,4 +30,4 @@ export class Community {
   members: Types.ObjectId[];
 }
 
-export const CommunitySchema = SchemaFactory.createForClass(Community);
+export const GroupSchema = SchemaFactory.createForClass(Group);

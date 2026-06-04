@@ -17,6 +17,7 @@ import { CommunityService } from './community.service';
 import { CreateCommunityDto } from './dto/create-community.dto';
 import { UpdateCommunityDto } from './dto/update-community.dto';
 import { AddMembersDto } from './dto/add-members.dto';
+import { CreateCommunityRunDto } from './dto/create-community-run.dto';
 
 @ApiTags('Community')
 @ApiBearerAuth()
@@ -73,6 +74,71 @@ export class CommunityController {
       statusCode: HttpStatus.OK,
       success: true,
       message: 'Potential community members (matches) fetched successfully',
+      data,
+    };
+  }
+
+  @Get('runs/feed')
+  @ApiOperation({ summary: 'Get a feed of upcoming community runs for joined communities' })
+  async getRunsFeed(@Req() req) {
+    const data = await this.communityService.getRunsFeed(req.user.id);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Community runs feed fetched successfully',
+      data,
+    };
+  }
+
+  @Get('runs/history')
+  @ApiOperation({ summary: 'Get history of completed community runs user participated in' })
+  async getRunsHistory(@Req() req) {
+    const data = await this.communityService.getRunsHistory(req.user.id);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Community runs history fetched successfully',
+      data,
+    };
+  }
+
+  @Post(':communityId/runs')
+  @ApiOperation({ summary: 'Create a run in a specific community (members only)' })
+  @ApiBody({ type: CreateCommunityRunDto })
+  async createRun(
+    @Param('communityId') communityId: string,
+    @Req() req,
+    @Body() body: CreateCommunityRunDto,
+  ) {
+    const data = await this.communityService.createRun(req.user.id, communityId, body);
+    return {
+      statusCode: HttpStatus.CREATED,
+      success: true,
+      message: 'Community run created successfully',
+      data,
+    };
+  }
+
+  @Post('runs/:runId/join')
+  @ApiOperation({ summary: 'Join an upcoming community run' })
+  async joinRun(@Param('runId') runId: string, @Req() req) {
+    const data = await this.communityService.joinRun(req.user.id, runId);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Successfully joined the community run',
+      data,
+    };
+  }
+
+  @Post('runs/:runId/complete')
+  @ApiOperation({ summary: 'Mark a community run as completed (creator only)' })
+  async completeRun(@Param('runId') runId: string, @Req() req) {
+    const data = await this.communityService.completeRun(req.user.id, runId);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Community run marked as completed successfully',
       data,
     };
   }

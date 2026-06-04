@@ -4,9 +4,11 @@ import { Model, Types } from 'mongoose';
 import { Community, CommunityDocument } from './entities/community.entity';
 import { User, UserDocument } from '../users/entities/user.entity';
 import { Match, MatchDocument } from '../matches/entities/match.entity';
+import { CommunityRun, CommunityRunDocument } from './entities/community-run.entity';
 import { CreateCommunityDto } from './dto/create-community.dto';
 import { UpdateCommunityDto } from './dto/update-community.dto';
 import { AddMembersDto } from './dto/add-members.dto';
+import { CreateCommunityRunDto } from './dto/create-community-run.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
@@ -15,6 +17,7 @@ export class CommunityService {
     @InjectModel(Community.name) private communityModel: Model<CommunityDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Match.name) private matchModel: Model<MatchDocument>,
+    @InjectModel(CommunityRun.name) private communityRunModel: Model<CommunityRunDocument>,
     private readonly notificationsService: NotificationsService,
   ) { }
 
@@ -197,6 +200,7 @@ export class CommunityService {
     if (updateCommunityDto.name !== undefined) community.name = updateCommunityDto.name;
     if (updateCommunityDto.description !== undefined) community.description = updateCommunityDto.description;
     if (updateCommunityDto.image !== undefined) community.image = updateCommunityDto.image;
+    if (updateCommunityDto.visibility !== undefined) community.visibility = updateCommunityDto.visibility;
 
     await community.save();
 
@@ -340,5 +344,126 @@ export class CommunityService {
       success: true,
       message: 'Successfully joined the community',
     };
+  }
+
+  /**
+   * Create a community run (member/creator of the community only).
+   */
+  async createRun(userId: string, communityId: string, dto: CreateCommunityRunDto) {
+    const community = await this.communityModel.findById(communityId);
+    if (!community) {
+      throw new NotFoundException('Community not found');
+    }
+
+    const isMember = community.members.some((m) => m.toString() === userId);
+    if (!isMember && community.createdBy.toString() !== userId) {
+      throw new ForbiddenException('You must be a member of this community to create a run');
+    }
+
+    const run = await this.communityRunModel.create({
+      ...dto,
+      communityId: new Types.ObjectId(communityId),
+      createdBy: new Types.ObjectId(userId),
+      participants: [new Types.ObjectId(userId)], // creator is a participant by default
+    });
+
+    return run.populate([
+      { path: 'createdBy', select: 'first_name last_name display_name email image' },
+      { path: 'participants', select: 'first_name last_name display_name email image' },
+    ]);
+  }
+
+  /**
+   * Get all upcoming community runs for communities that the user is a member of.
+   */
+  async getRunsFeed(userId: string) {
+    const userObjectId = new Types.ObjectId(userId);
+    // Find communities where the user is a member
+    const joinedCommunities = await this.communityModel.find({
+      members: userObjectId,
+    });
+    const communityIds = joinedCommunities.map((c) => c._id);
+
+    return this.communityRunModel
+      .find({
+        communityId: { $in: communityIds },
+        status: 'upcoming',
+      })
+      .populate('communityId', 'name image')
+      .populate('createdBy', 'first_name last_name display_name email image')
+      .populate('participants', 'first_name last_name display_name email image')
+      .sort({ date: 1 });
+  }
+
+  /**
+   * Join a scheduled community run.
+   */
+  async joinRun(userId: string, runId: string) {
+    const run = await this.communityRunModel.findById(runId);
+    if (!run) {
+      throw new NotFoundException('Community run not found');
+    }
+
+    const community = await this.communityModel.findById(run.communityId);
+    if (!community) {
+      throw new NotFoundException('Associated community not found');
+    }
+
+    const isMember = community.members.some((m) => m.toString() === userId);
+    if (!isMember && community.createdBy.toString() !== userId) {
+      throw new ForbiddenException('You must be a member of the community to join this run');
+    }
+
+    const isParticipant = run.participants.some((p) => p.toString() === userId);
+    if (isParticipant) {
+      throw new BadRequestException('You have already joined this run');
+    }
+
+    run.participants.push(new Types.ObjectId(userId));
+    await run.save();
+
+    return {
+      success: true,
+      message: 'Successfully joined the run',
+    };
+  }
+
+  /**
+   * Mark a community run as completed.
+   */
+  async completeRun(userId: string, runId: string) {
+    const run = await this.communityRunModel.findById(runId);
+    if (!run) {
+      throw new NotFoundException('Community run not found');
+    }
+
+    // Only allow creator to mark as completed
+    if (run.createdBy.toString() !== userId) {
+      throw new ForbiddenException('Only the creator of this run can mark it as completed');
+    }
+
+    run.status = 'completed';
+    await run.save();
+
+    return {
+      success: true,
+      message: 'Run marked as completed successfully',
+    };
+  }
+
+  /**
+   * Get history of completed community runs that the user participated in.
+   */
+  async getRunsHistory(userId: string) {
+    const userObjectId = new Types.ObjectId(userId);
+    return this.communityRunModel
+      .find({
+        participants: userObjectId,
+        status: 'completed',
+      })
+      .populate('communityId', 'name image')
+      .populate('createdBy', 'first_name last_name display_name email image')
+      .populate('participants', 'first_name last_name display_name email image')
+      .sort({ date: -1 });
   }
 }

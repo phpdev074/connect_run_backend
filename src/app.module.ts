@@ -19,6 +19,7 @@ import { FirebaseModule } from './utils/firebase.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { LiveStreamingModule } from './live-streaming/live-streaming.module';
 import { CommunityModule } from './community/community.module';
+import { GroupModule } from './group/group.module';
 
 
 
@@ -56,7 +57,8 @@ import { CommunityModule } from './community/community.module';
     FirebaseModule,
     NotificationsModule,
     LiveStreamingModule,
-    CommunityModule
+    CommunityModule,
+    // GroupModule
 
   ],
 })

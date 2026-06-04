@@ -1,13 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsOptional, IsArray } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsArray, IsNumber } from 'class-validator';
 
-export class CreateCommunityDto {
+export class CreateGroupDto {
   @ApiProperty({ example: 'Morning Runners' })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ example: 'A community for morning run enthusiasts.', required: false })
+  @ApiProperty({ example: 'A group for morning run enthusiasts.', required: false })
   @IsString()
   @IsOptional()
   description?: string;
@@ -16,6 +16,16 @@ export class CreateCommunityDto {
   @IsString()
   @IsOptional()
   image?: string;
+
+  @ApiProperty({ example: '4:30 - 5:30 min/km', required: false })
+  @IsString()
+  @IsOptional()
+  paceRange?: string;
+
+  @ApiProperty({ example: 50, required: false })
+  @IsNumber()
+  @IsOptional()
+  maxMembers?: number;
 
   @ApiProperty({ example: 'public', required: false })
   @IsString()
