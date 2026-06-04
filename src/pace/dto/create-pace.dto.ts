@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsOptional, IsArray, IsNumber } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsArray, IsNumber, IsDateString } from 'class-validator';
 
-export class CreateGroupDto {
+export class CreatePaceDto {
   @ApiProperty({ example: 'Morning Runners' })
   @IsString()
   @IsNotEmpty()
@@ -12,25 +12,45 @@ export class CreateGroupDto {
   @IsOptional()
   description?: string;
 
-  @ApiProperty({ example: 'https://example.com/image.png', required: false })
+  @ApiProperty({ example: 'Meet at Gate B, warm up for 10 mins, do 10k, cool down', required: false })
   @IsString()
   @IsOptional()
-  image?: string;
+  runTravelPlan?: string;
 
-  @ApiProperty({ example: '4:30 - 5:30 min/km', required: false })
+  @ApiProperty({ example: 'Central Park Gate B', required: false })
   @IsString()
   @IsOptional()
-  paceRange?: string;
+  meetingLocation?: string;
 
-  @ApiProperty({ example: 50, required: false })
+  @ApiProperty({ example: '10 km', required: false })
+  @IsString()
+  @IsOptional()
+  distance?: string;
+
+  @ApiProperty({ example: '5:45/km', required: false })
+  @IsString()
+  @IsOptional()
+  targetPace?: string;
+
+  @ApiProperty({ example: 10, required: false })
   @IsNumber()
   @IsOptional()
-  maxMembers?: number;
+  joinPrice?: number;
 
-  @ApiProperty({ example: 'public', required: false })
+  @ApiProperty({ example: '2026-06-10T08:00:00.000Z', required: false })
+  @IsDateString()
+  @IsOptional()
+  date?: string;
+
+  @ApiProperty({ example: '8:00 AM', required: false })
   @IsString()
   @IsOptional()
-  visibility?: string;
+  time?: string;
+
+  @ApiProperty({ example: 'upcoming', required: false })
+  @IsString()
+  @IsOptional()
+  status?: string;
 
   @ApiProperty({ example: ['65eaf...'], type: [String], required: false })
   @IsArray()

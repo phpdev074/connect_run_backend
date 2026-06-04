@@ -1,10 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Types, Document } from 'mongoose';
 
-export type GroupDocument = Group & Document;
+export type PaceDocument = Pace & Document;
 
 @Schema({ timestamps: true })
-export class Group {
+export class Pace {
   @Prop({ required: true })
   name: string;
 
@@ -12,16 +12,28 @@ export class Group {
   description?: string;
 
   @Prop()
-  image?: string;
+  runTravelPlan?: string;
 
   @Prop()
-  paceRange?: string;
+  meetingLocation?: string;
 
   @Prop()
-  maxMembers?: number;
+  distance?: string;
 
   @Prop()
-  visibility?: string;
+  targetPace?: string;
+
+  @Prop({ type: Number, default: 0 })
+  joinPrice: number;
+
+  @Prop({ type: Date })
+  date?: Date;
+
+  @Prop()
+  time?: string;
+
+  @Prop({ default: 'upcoming', enum: ['upcoming', 'completed'] })
+  status: string;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
@@ -30,4 +42,4 @@ export class Group {
   members: Types.ObjectId[];
 }
 
-export const GroupSchema = SchemaFactory.createForClass(Group);
+export const PaceSchema = SchemaFactory.createForClass(Pace);

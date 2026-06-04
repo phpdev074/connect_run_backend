@@ -1,4 +1,4 @@
 import { PartialType } from '@nestjs/swagger';
-import { CreateGroupDto } from './create-pace.dto';
+import { CreatePaceDto } from './create-pace.dto';
 
-export class UpdateGroupDto extends PartialType(CreateGroupDto) { }
+export class UpdatePaceDto extends PartialType(CreatePaceDto) { }

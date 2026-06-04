@@ -1,24 +1,23 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Group, GroupDocument } from './entities/pace.entity';
+import { Pace, PaceDocument } from './entities/pace.entity';
 import { User, UserDocument } from '../users/entities/user.entity';
 import { Match, MatchDocument } from '../matches/entities/match.entity';
-import { GroupRun, GroupRunDocument } from './entities/pace-run.entity';
-import { CreateGroupDto } from './dto/create-pace.dto';
-import { UpdateGroupDto } from './dto/update-pace.dto';
+import { CreatePaceDto } from './dto/create-pace.dto';
+import { UpdatePaceDto } from './dto/update-pace.dto';
 import { AddMembersDto } from './dto/add-members.dto';
-import { CreateGroupRunDto } from './dto/create-pace-run.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { RewardsService } from '../rewards/rewards.service';
 
 @Injectable()
-export class GroupService {
+export class PaceService {
   constructor(
-    @InjectModel(Group.name) private groupModel: Model<GroupDocument>,
+    @InjectModel(Pace.name) private paceModel: Model<PaceDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Match.name) private matchModel: Model<MatchDocument>,
-    @InjectModel(GroupRun.name) private groupRunModel: Model<GroupRunDocument>,
     private readonly notificationsService: NotificationsService,
+    private readonly rewardsService: RewardsService,
   ) { }
 
   /**
@@ -53,16 +52,16 @@ export class GroupService {
   }
 
   /**
-   * Create a group. Validates that all members specified are matches of the creator.
+   * Create a Pace (hosted run). Validates that all members specified are matches of the creator.
    */
-  async create(userId: string, createGroupDto: CreateGroupDto) {
+  async create(userId: string, createPaceDto: CreatePaceDto) {
     const creatorObjectId = new Types.ObjectId(userId);
     const memberObjectIds: Types.ObjectId[] = [creatorObjectId];
 
-    if (createGroupDto.members && createGroupDto.members.length > 0) {
+    if (createPaceDto.members && createPaceDto.members.length > 0) {
       const matchedUserIds = await this.getMatchedUserIds(userId);
 
-      for (const memberId of createGroupDto.members) {
+      for (const memberId of createPaceDto.members) {
         if (!matchedUserIds.includes(memberId)) {
           throw new BadRequestException(`User ${memberId} is not matched with you. You can only add matches.`);
         }
@@ -75,113 +74,118 @@ export class GroupService {
       (id) => new Types.ObjectId(id),
     );
 
-    const group = await this.groupModel.create({
-      ...createGroupDto,
+    const pace = await this.paceModel.create({
+      ...createPaceDto,
       createdBy: creatorObjectId,
       members: uniqueMembers,
+      status: createPaceDto.status || 'upcoming',
+      date: createPaceDto.date ? new Date(createPaceDto.date) : undefined,
     });
 
     // Send notifications to added members (excluding the creator)
-    if (createGroupDto.members && createGroupDto.members.length > 0) {
+    if (createPaceDto.members && createPaceDto.members.length > 0) {
       try {
         const creator = await this.userModel.findById(userId);
         const creatorName = creator?.display_name || creator?.first_name || 'Someone';
 
-        for (const memberId of createGroupDto.members) {
+        for (const memberId of createPaceDto.members) {
           await this.notificationsService.sendAndSave(
             memberId,
-            'Added to a Group!',
-            `You were added to the group "${group.name}" by ${creatorName}!`,
-            'GROUP_ADDED',
-            { groupId: group._id.toString() }
+            'Added to a Pace!',
+            `You were added to the Pace "${pace.name}" by ${creatorName}!`,
+            'PACE_ADDED',
+            { paceId: pace._id.toString() }
           );
         }
       } catch (error) {
-        console.error('Failed to send group creation notifications:', error);
+        console.error('Failed to send Pace creation notifications:', error);
       }
     }
 
-    return this.findOne(group._id.toString());
+    return this.findOne(pace._id.toString());
   }
 
   /**
-   * Find all groups created by other users.
+   * Find all paces created by other users that are upcoming and not joined yet.
    */
   async findAllExceptOwn(userId: string) {
     const userObjectId = new Types.ObjectId(userId);
-    return this.groupModel
+    return this.paceModel
       .find({
         createdBy: { $ne: userObjectId },
         members: { $ne: userObjectId },
+        status: 'upcoming',
       })
       .populate('createdBy', 'first_name last_name display_name email image')
       .populate('members', 'first_name last_name display_name email image');
   }
 
   /**
-   * Find other users' groups that the logged-in user has joined (is a member of).
+   * Find other users' paces that the logged-in user has joined (is a member of).
    */
   async findJoinedOthers(userId: string) {
     const userObjectId = new Types.ObjectId(userId);
-    return this.groupModel
+    return this.paceModel
       .find({
         createdBy: { $ne: userObjectId },
         members: userObjectId,
+        status: 'upcoming',
       })
       .populate('createdBy', 'first_name last_name display_name email image')
       .populate('members', 'first_name last_name display_name email image');
   }
 
   /**
-   * Find all groups created by the logged-in user.
+   * Find all paces created by the logged-in user that are upcoming.
    */
   async findOwn(userId: string) {
     const userObjectId = new Types.ObjectId(userId);
-    return this.groupModel
+    return this.paceModel
       .find({
         createdBy: userObjectId,
+        status: 'upcoming',
       })
       .populate('createdBy', 'first_name last_name display_name email image')
       .populate('members', 'first_name last_name display_name email image');
   }
 
   /**
-   * Get details of a single group.
+   * Get details of a single Pace.
    */
   async findOne(id: string) {
-    const group = await this.groupModel
+    const pace = await this.paceModel
       .findById(id)
       .populate('createdBy', 'first_name last_name display_name email image')
       .populate('members', 'first_name last_name display_name email image');
 
-    if (!group) {
-      throw new NotFoundException('Group not found');
+    if (!pace) {
+      throw new NotFoundException('Pace not found');
     }
-    return group;
+    return pace;
   }
 
   /**
-   * Update a group. Restricts editing to the creator and validates added members.
+   * Update a Pace. Restricts editing to the creator and validates added members.
    */
-  async update(userId: string, id: string, updateGroupDto: UpdateGroupDto) {
-    const group = await this.groupModel.findById(id);
-    if (!group) {
-      throw new NotFoundException('Group not found');
+  async update(userId: string, id: string, updatePaceDto: UpdatePaceDto) {
+    const pace = await this.paceModel.findById(id);
+    if (!pace) {
+      throw new NotFoundException('Pace not found');
     }
 
-    if (group.createdBy.toString() !== userId) {
-      throw new ForbiddenException('Only the creator can edit this group');
+    if (pace.createdBy.toString() !== userId) {
+      throw new ForbiddenException('Only the creator can edit this Pace');
     }
 
     const newlyAddedMembers: string[] = [];
 
-    if (updateGroupDto.members) {
+    if (updatePaceDto.members) {
       const creatorObjectId = new Types.ObjectId(userId);
       const memberObjectIds: Types.ObjectId[] = [creatorObjectId];
       const matchedUserIds = await this.getMatchedUserIds(userId);
-      const currentMemberStrIds = group.members.map((m) => m.toString());
+      const currentMemberStrIds = pace.members.map((m) => m.toString());
 
-      for (const memberId of updateGroupDto.members) {
+      for (const memberId of updatePaceDto.members) {
         if (!matchedUserIds.includes(memberId)) {
           throw new BadRequestException(`User ${memberId} is not matched with you. You can only add matches.`);
         }
@@ -194,17 +198,21 @@ export class GroupService {
       const uniqueMembers = Array.from(new Set(memberObjectIds.map((id) => id.toString()))).map(
         (id) => new Types.ObjectId(id),
       );
-      group.members = uniqueMembers;
+      pace.members = uniqueMembers;
     }
 
-    if (updateGroupDto.name !== undefined) group.name = updateGroupDto.name;
-    if (updateGroupDto.description !== undefined) group.description = updateGroupDto.description;
-    if (updateGroupDto.image !== undefined) group.image = updateGroupDto.image;
-    if (updateGroupDto.paceRange !== undefined) group.paceRange = updateGroupDto.paceRange;
-    if (updateGroupDto.maxMembers !== undefined) group.maxMembers = updateGroupDto.maxMembers;
-    if (updateGroupDto.visibility !== undefined) group.visibility = updateGroupDto.visibility;
+    if (updatePaceDto.name !== undefined) pace.name = updatePaceDto.name;
+    if (updatePaceDto.description !== undefined) pace.description = updatePaceDto.description;
+    if (updatePaceDto.runTravelPlan !== undefined) pace.runTravelPlan = updatePaceDto.runTravelPlan;
+    if (updatePaceDto.meetingLocation !== undefined) pace.meetingLocation = updatePaceDto.meetingLocation;
+    if (updatePaceDto.distance !== undefined) pace.distance = updatePaceDto.distance;
+    if (updatePaceDto.targetPace !== undefined) pace.targetPace = updatePaceDto.targetPace;
+    if (updatePaceDto.joinPrice !== undefined) pace.joinPrice = updatePaceDto.joinPrice;
+    if (updatePaceDto.date !== undefined) pace.date = updatePaceDto.date ? new Date(updatePaceDto.date) : undefined;
+    if (updatePaceDto.time !== undefined) pace.time = updatePaceDto.time;
+    if (updatePaceDto.status !== undefined) pace.status = updatePaceDto.status;
 
-    await group.save();
+    await pace.save();
 
     // Send notifications to newly added members
     if (newlyAddedMembers.length > 0) {
@@ -215,14 +223,14 @@ export class GroupService {
         for (const memberId of newlyAddedMembers) {
           await this.notificationsService.sendAndSave(
             memberId,
-            'Added to a Group!',
-            `You were added to the group "${group.name}" by ${creatorName}!`,
-            'GROUP_ADDED',
-            { groupId: group._id.toString() }
+            'Added to a Pace!',
+            `You were added to the Pace "${pace.name}" by ${creatorName}!`,
+            'PACE_ADDED',
+            { paceId: pace._id.toString() }
           );
         }
       } catch (error) {
-        console.error('Failed to send group member update notifications:', error);
+        console.error('Failed to send Pace member update notifications:', error);
       }
     }
 
@@ -230,37 +238,37 @@ export class GroupService {
   }
 
   /**
-   * Delete group. Restricts deletion to the creator.
+   * Delete Pace. Restricts deletion to the creator.
    */
   async delete(userId: string, id: string) {
-    const group = await this.groupModel.findById(id);
-    if (!group) {
-      throw new NotFoundException('Group not found');
+    const pace = await this.paceModel.findById(id);
+    if (!pace) {
+      throw new NotFoundException('Pace not found');
     }
 
-    if (group.createdBy.toString() !== userId) {
-      throw new ForbiddenException('Only the creator can delete this group');
+    if (pace.createdBy.toString() !== userId) {
+      throw new ForbiddenException('Only the creator can delete this Pace');
     }
 
-    await this.groupModel.findByIdAndDelete(id);
+    await this.paceModel.findByIdAndDelete(id);
     return { deleted: true };
   }
 
   /**
-   * Add members to an existing group. Validates that added members are matches.
+   * Add members to an existing Pace. Validates that added members are matches.
    */
   async addMembers(userId: string, id: string, addMembersDto: AddMembersDto) {
-    const group = await this.groupModel.findById(id);
-    if (!group) {
-      throw new NotFoundException('Group not found');
+    const pace = await this.paceModel.findById(id);
+    if (!pace) {
+      throw new NotFoundException('Pace not found');
     }
 
-    if (group.createdBy.toString() !== userId) {
-      throw new ForbiddenException('Only the creator can add members to this group');
+    if (pace.createdBy.toString() !== userId) {
+      throw new ForbiddenException('Only the creator can add members to this Pace');
     }
 
     const matchedUserIds = await this.getMatchedUserIds(userId);
-    const currentMemberStrIds = group.members.map((m) => m.toString());
+    const currentMemberStrIds = pace.members.map((m) => m.toString());
     const newlyAddedMembers: string[] = [];
 
     for (const memberId of addMembersDto.members) {
@@ -268,12 +276,12 @@ export class GroupService {
         throw new BadRequestException(`User ${memberId} is not matched with you. You can only add matches.`);
       }
       if (!currentMemberStrIds.includes(memberId)) {
-        group.members.push(new Types.ObjectId(memberId));
+        pace.members.push(new Types.ObjectId(memberId));
         newlyAddedMembers.push(memberId);
       }
     }
 
-    await group.save();
+    await pace.save();
 
     // Send notifications to newly added members
     if (newlyAddedMembers.length > 0) {
@@ -284,14 +292,14 @@ export class GroupService {
         for (const memberId of newlyAddedMembers) {
           await this.notificationsService.sendAndSave(
             memberId,
-            'Added to a Group!',
-            `You were added to the group "${group.name}" by ${creatorName}!`,
-            'GROUP_ADDED',
-            { groupId: group._id.toString() }
+            'Added to a Pace!',
+            `You were added to the Pace "${pace.name}" by ${creatorName}!`,
+            'PACE_ADDED',
+            { paceId: pace._id.toString() }
           );
         }
       } catch (error) {
-        console.error('Failed to send group addMembers notifications:', error);
+        console.error('Failed to send Pace addMembers notifications:', error);
       }
     }
 
@@ -299,150 +307,114 @@ export class GroupService {
   }
 
   /**
-   * Leave a group. Restricts creator from leaving and ensures the user is a member.
+   * Leave a Pace. Restricts creator from leaving and ensures the user is a member.
    */
   async leave(userId: string, id: string) {
-    const group = await this.groupModel.findById(id);
-    if (!group) {
-      throw new NotFoundException('Group not found');
+    const pace = await this.paceModel.findById(id);
+    if (!pace) {
+      throw new NotFoundException('Pace not found');
     }
 
-    if (group.createdBy.toString() === userId) {
-      throw new BadRequestException('As the creator, you cannot leave this group. Please delete it instead.');
+    if (pace.createdBy.toString() === userId) {
+      throw new BadRequestException('As the creator, you cannot leave this Pace. Please delete it instead.');
     }
 
-    const memberIndex = group.members.findIndex((m) => m.toString() === userId);
+    const memberIndex = pace.members.findIndex((m) => m.toString() === userId);
     if (memberIndex === -1) {
-      throw new BadRequestException('You are not a member of this group');
+      throw new BadRequestException('You are not a member of this Pace');
     }
 
-    group.members.splice(memberIndex, 1);
-    await group.save();
+    pace.members.splice(memberIndex, 1);
+    await pace.save();
 
     return {
       success: true,
-      message: 'Successfully left the group',
+      message: 'Successfully left the Pace',
     };
   }
 
   /**
-   * Create a group run (member/creator of the group only).
+   * Join a Pace. Deducts the joinPrice points from user's account if greater than 0.
    */
-  async createRun(userId: string, groupId: string, dto: CreateGroupRunDto) {
-    const group = await this.groupModel.findById(groupId);
-    if (!group) {
-      throw new NotFoundException('Group not found');
+  async join(userId: string, id: string) {
+    const pace = await this.paceModel.findById(id);
+    if (!pace) {
+      throw new NotFoundException('Pace not found');
     }
 
-    const isMember = group.members.some((m) => m.toString() === userId);
-    if (!isMember && group.createdBy.toString() !== userId) {
-      throw new ForbiddenException('You must be a member of this group to create a run');
+    const memberIndex = pace.members.findIndex((m) => m.toString() === userId);
+    if (memberIndex !== -1) {
+      throw new BadRequestException('You are already a member of this Pace');
     }
 
-    const run = await this.groupRunModel.create({
-      ...dto,
-      groupId: new Types.ObjectId(groupId),
-      createdBy: new Types.ObjectId(userId),
-      participants: [new Types.ObjectId(userId)], // creator is a participant by default
-    });
+    // Process joining fee payment if applicable
+    if (pace.joinPrice && pace.joinPrice > 0) {
+      await this.rewardsService.redeemPoints(userId, pace.joinPrice, `Joined Pace: ${pace.name}`);
+    }
 
-    return run.populate([
-      { path: 'createdBy', select: 'first_name last_name display_name email image' },
-      { path: 'participants', select: 'first_name last_name display_name email image' },
-    ]);
+    pace.members.push(new Types.ObjectId(userId));
+    await pace.save();
+
+    return {
+      success: true,
+      message: 'Successfully joined the Pace',
+    };
   }
 
   /**
-   * Get all upcoming group runs for groups that the user is a member of.
+   * Mark a Pace run as completed.
    */
-  async getRunsFeed(userId: string) {
-    const userObjectId = new Types.ObjectId(userId);
-    // Find groups where the user is a member
-    const joinedGroups = await this.groupModel.find({
-      members: userObjectId,
-    });
-    const groupIds = joinedGroups.map((g) => g._id);
+  async complete(userId: string, id: string) {
+    const pace = await this.paceModel.findById(id);
+    if (!pace) {
+      throw new NotFoundException('Pace not found');
+    }
 
-    return this.groupRunModel
+    // Only allow creator/host to mark as completed
+    if (pace.createdBy.toString() !== userId) {
+      throw new ForbiddenException('Only the host of this Pace can mark it as completed');
+    }
+
+    pace.status = 'completed';
+    await pace.save();
+
+    return {
+      success: true,
+      message: 'Pace marked as completed successfully',
+    };
+  }
+
+  /**
+   * Get all upcoming paces (hosted runs) available to join.
+   */
+  async getFeed(userId: string) {
+    const userObjectId = new Types.ObjectId(userId);
+    return this.paceModel
       .find({
-        groupId: { $in: groupIds },
+        createdBy: { $ne: userObjectId },
+        members: { $ne: userObjectId },
         status: 'upcoming',
       })
-      .populate('groupId', 'name image')
       .populate('createdBy', 'first_name last_name display_name email image')
-      .populate('participants', 'first_name last_name display_name email image')
+      .populate('members', 'first_name last_name display_name email image')
       .sort({ date: 1 });
   }
 
   /**
-   * Join a scheduled group run.
+   * Get history of completed paces (hosted runs) that the user participated in (either hosted or joined).
    */
-  async joinRun(userId: string, runId: string) {
-    const run = await this.groupRunModel.findById(runId);
-    if (!run) {
-      throw new NotFoundException('Group run not found');
-    }
-
-    const group = await this.groupModel.findById(run.groupId);
-    if (!group) {
-      throw new NotFoundException('Associated group not found');
-    }
-
-    const isMember = group.members.some((m) => m.toString() === userId);
-    if (!isMember && group.createdBy.toString() !== userId) {
-      throw new ForbiddenException('You must be a member of the group to join this run');
-    }
-
-    const isParticipant = run.participants.some((p) => p.toString() === userId);
-    if (isParticipant) {
-      throw new BadRequestException('You have already joined this run');
-    }
-
-    run.participants.push(new Types.ObjectId(userId));
-    await run.save();
-
-    return {
-      success: true,
-      message: 'Successfully joined the run',
-    };
-  }
-
-  /**
-   * Mark a group run as completed.
-   */
-  async completeRun(userId: string, runId: string) {
-    const run = await this.groupRunModel.findById(runId);
-    if (!run) {
-      throw new NotFoundException('Group run not found');
-    }
-
-    // Only allow creator to mark as completed
-    if (run.createdBy.toString() !== userId) {
-      throw new ForbiddenException('Only the creator of this run can mark it as completed');
-    }
-
-    run.status = 'completed';
-    await run.save();
-
-    return {
-      success: true,
-      message: 'Run marked as completed successfully',
-    };
-  }
-
-  /**
-   * Get history of completed group runs that the user participated in.
-   */
-  async getRunsHistory(userId: string) {
+  async getHistory(userId: string) {
     const userObjectId = new Types.ObjectId(userId);
-    return this.groupRunModel
+    return this.paceModel
       .find({
-        participants: userObjectId,
+        $or: [
+          { createdBy: userObjectId },
+          { members: userObjectId }
+        ],
         status: 'completed',
       })
-      .populate('groupId', 'name image')
       .populate('createdBy', 'first_name last_name display_name email image')
-      .populate('participants', 'first_name last_name display_name email image')
+      .populate('members', 'first_name last_name display_name email image')
       .sort({ date: -1 });
   }
 }
