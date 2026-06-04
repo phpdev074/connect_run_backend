@@ -1,14 +1,14 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Group, GroupDocument } from './entities/group.entity';
+import { Group, GroupDocument } from './entities/pace.entity';
 import { User, UserDocument } from '../users/entities/user.entity';
 import { Match, MatchDocument } from '../matches/entities/match.entity';
-import { GroupRun, GroupRunDocument } from './entities/group-run.entity';
-import { CreateGroupDto } from './dto/create-group.dto';
-import { UpdateGroupDto } from './dto/update-group.dto';
+import { GroupRun, GroupRunDocument } from './entities/pace-run.entity';
+import { CreateGroupDto } from './dto/create-pace.dto';
+import { UpdateGroupDto } from './dto/update-pace.dto';
 import { AddMembersDto } from './dto/add-members.dto';
-import { CreateGroupRunDto } from './dto/create-group-run.dto';
+import { CreateGroupRunDto } from './dto/create-pace-run.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()

@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { GroupController } from './group.controller';
-import { GroupService } from './group.service';
-import { Group, GroupSchema } from './entities/group.entity';
+import { GroupController } from './pace.controller';
+import { GroupService } from './pace.service';
+import { Group, GroupSchema } from './entities/pace.entity';
 import { User, UserSchema } from '../users/entities/user.entity';
 import { Match, MatchSchema } from '../matches/entities/match.entity';
-import { GroupRun, GroupRunSchema } from './entities/group-run.entity';
+import { GroupRun, GroupRunSchema } from './entities/pace-run.entity';
 
 @Module({
   imports: [
@@ -20,4 +20,4 @@ import { GroupRun, GroupRunSchema } from './entities/group-run.entity';
   providers: [GroupService],
   exports: [GroupService],
 })
-export class GroupModule {}
+export class GroupModule { }

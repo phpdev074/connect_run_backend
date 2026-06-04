@@ -58,7 +58,7 @@ import { GroupModule } from './group/group.module';
     NotificationsModule,
     LiveStreamingModule,
     CommunityModule,
-    // GroupModule
+    GroupModule
 
   ],
 })

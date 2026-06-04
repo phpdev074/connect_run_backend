@@ -13,11 +13,11 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody, ApiQuery } from '@nestjs/swagger';
-import { GroupService } from './group.service';
-import { CreateGroupDto } from './dto/create-group.dto';
-import { UpdateGroupDto } from './dto/update-group.dto';
+import { GroupService } from './pace.service';
+import { CreateGroupDto } from './dto/create-pace.dto';
+import { UpdateGroupDto } from './dto/update-pace.dto';
 import { AddMembersDto } from './dto/add-members.dto';
-import { CreateGroupRunDto } from './dto/create-group-run.dto';
+import { CreateGroupRunDto } from './dto/create-pace-run.dto';
 
 @ApiTags('Group')
 @ApiBearerAuth()
