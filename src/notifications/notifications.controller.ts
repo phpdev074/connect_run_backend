@@ -1,7 +1,8 @@
-import { Controller, Post, Body, Get, Req, UseGuards, Query, Patch, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, Req, UseGuards, Query, Patch, Param, Delete } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { ApiTags, ApiOperation, ApiBody, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { BulkDeleteNotificationsDto } from './dto/bulk-delete-notifications.dto';
 
 @ApiTags('Notifications')
 @Controller('notifications')
@@ -32,6 +33,19 @@ export class NotificationsController {
   @ApiOperation({ summary: 'Mark all notifications as read' })
   async markAllRead(@Req() req) {
     return await this.notificationsService.markAllAsRead(req.user.id);
+  }
+
+  @Delete('bulk-delete')
+  @ApiOperation({ summary: 'Bulk soft-delete notifications' })
+  @ApiBody({ type: BulkDeleteNotificationsDto })
+  async bulkDelete(@Req() req, @Body() body: BulkDeleteNotificationsDto) {
+    const result = await this.notificationsService.bulkDelete(req.user.id, body.notificationIds);
+    return {
+      statusCode: 200,
+      success: true,
+      message: 'Notifications soft deleted successfully',
+      data: result,
+    };
   }
 
   // --- Test Endpoints (Consider removing in production) ---

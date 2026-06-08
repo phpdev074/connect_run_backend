@@ -59,13 +59,14 @@ export class NotificationsService {
 
   async getUserNotifications(userId: string, page: number = 1, limit: number = 20) {
     const skip = (page - 1) * limit;
+    const query = { userId: new Types.ObjectId(userId), isDeleted: { $ne: true } };
     const [data, total] = await Promise.all([
       this.notificationModel
-        .find({ userId: new Types.ObjectId(userId) })
+        .find(query)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      this.notificationModel.countDocuments({ userId: new Types.ObjectId(userId) }),
+      this.notificationModel.countDocuments(query),
     ]);
 
     return {
@@ -85,8 +86,20 @@ export class NotificationsService {
 
   async markAllAsRead(userId: string) {
     return this.notificationModel.updateMany(
-      { userId: new Types.ObjectId(userId), isRead: false },
+      { userId: new Types.ObjectId(userId), isRead: false, isDeleted: { $ne: true } },
       { isRead: true },
+    );
+  }
+
+  async bulkDelete(userId: string, notificationIds: string[]) {
+    const objectIds = notificationIds.map((id) => new Types.ObjectId(id));
+    return this.notificationModel.updateMany(
+      {
+        _id: { $in: objectIds },
+        userId: new Types.ObjectId(userId),
+        isDeleted: { $ne: true },
+      },
+      { isDeleted: true },
     );
   }
 }

@@ -6,6 +6,7 @@ import { Community, CommunitySchema } from './entities/community.entity';
 import { User, UserSchema } from '../users/entities/user.entity';
 import { Match, MatchSchema } from '../matches/entities/match.entity';
 import { CommunityRun, CommunityRunSchema } from './entities/community-run.entity';
+import { CommunityRunPath, CommunityRunPathSchema } from './entities/community-run-path.entity';
 
 @Module({
   imports: [
@@ -14,10 +15,11 @@ import { CommunityRun, CommunityRunSchema } from './entities/community-run.entit
       { name: User.name, schema: UserSchema },
       { name: Match.name, schema: MatchSchema },
       { name: CommunityRun.name, schema: CommunityRunSchema },
+      { name: CommunityRunPath.name, schema: CommunityRunPathSchema },
     ]),
   ],
   controllers: [CommunityController],
   providers: [CommunityService],
   exports: [CommunityService],
 })
-export class CommunityModule {}
+export class CommunityModule { }

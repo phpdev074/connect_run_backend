@@ -35,8 +35,12 @@ export class GroupRun {
   @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
   participants: Types.ObjectId[];
 
+  @Prop({ type: Types.ObjectId, ref: 'GroupRunPath', default: null })
+  pathId?: Types.ObjectId;
+
   @Prop({ default: 'upcoming', enum: ['upcoming', 'completed'] })
   status: string;
+
 }
 
 export const GroupRunSchema = SchemaFactory.createForClass(GroupRun);

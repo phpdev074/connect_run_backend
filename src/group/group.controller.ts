@@ -18,6 +18,8 @@ import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { AddMembersDto } from './dto/add-members.dto';
 import { CreateGroupRunDto } from './dto/create-group-run.dto';
+import { RecordCoordinateDto } from '../community/dto/record-coordinate.dto';
+
 
 @ApiTags('Group')
 @ApiBearerAuth()
@@ -139,6 +141,23 @@ export class GroupController {
       statusCode: HttpStatus.OK,
       success: true,
       message: 'Group run marked as completed successfully',
+      data,
+    };
+  }
+
+  @Post('runs/:runId/coordinates')
+  @ApiOperation({ summary: 'Record a coordinate point for an ongoing group run' })
+  @ApiBody({ type: RecordCoordinateDto })
+  async recordCoordinate(
+    @Param('runId') runId: string,
+    @Req() req,
+    @Body() body: RecordCoordinateDto,
+  ) {
+    const data = await this.groupService.recordRunCoordinate(req.user.id, runId, body);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Run coordinate recorded successfully',
       data,
     };
   }

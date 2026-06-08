@@ -22,6 +22,9 @@ export class Notification {
 
   @Prop({ default: false })
   isRead: boolean;
+
+  @Prop({ default: false, index: true })
+  isDeleted: boolean;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);

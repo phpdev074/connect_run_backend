@@ -5,10 +5,12 @@ import { Community, CommunityDocument } from './entities/community.entity';
 import { User, UserDocument } from '../users/entities/user.entity';
 import { Match, MatchDocument } from '../matches/entities/match.entity';
 import { CommunityRun, CommunityRunDocument } from './entities/community-run.entity';
+import { CommunityRunPath, CommunityRunPathDocument } from './entities/community-run-path.entity';
 import { CreateCommunityDto } from './dto/create-community.dto';
 import { UpdateCommunityDto } from './dto/update-community.dto';
 import { AddMembersDto } from './dto/add-members.dto';
 import { CreateCommunityRunDto } from './dto/create-community-run.dto';
+import { RecordCoordinateDto } from './dto/record-coordinate.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
@@ -18,6 +20,7 @@ export class CommunityService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Match.name) private matchModel: Model<MatchDocument>,
     @InjectModel(CommunityRun.name) private communityRunModel: Model<CommunityRunDocument>,
+    @InjectModel(CommunityRunPath.name) private communityRunPathModel: Model<CommunityRunPathDocument>,
     private readonly notificationsService: NotificationsService,
   ) { }
 
@@ -452,6 +455,44 @@ export class CommunityService {
   }
 
   /**
+   * Record a single GPS coordinate point for an ongoing community run.
+   */
+  async recordRunCoordinate(userId: string, runId: string, dto: RecordCoordinateDto) {
+    const run = await this.communityRunModel.findById(runId);
+    if (!run) {
+      throw new NotFoundException('Community run not found');
+    }
+
+    // Allow participants or creator to record coordinates
+    const isParticipant = run.participants.some((p) => p.toString() === userId);
+    if (!isParticipant && run.createdBy.toString() !== userId) {
+      throw new ForbiddenException('You are not a participant in this community run');
+    }
+
+    let path = await this.communityRunPathModel.findOne({ communityRunId: run._id });
+
+    if (!path) {
+      // Create new path document
+      path = await this.communityRunPathModel.create({
+        communityRunId: run._id,
+        gpsTrack: [{ latitude: dto.latitude, longitude: dto.longitude }],
+      });
+      // Link the path to the run
+      run.pathId = path._id as Types.ObjectId;
+      await run.save();
+    } else {
+      // Append coordinate to existing path
+      path = await this.communityRunPathModel.findOneAndUpdate(
+        { communityRunId: run._id },
+        { $push: { gpsTrack: { latitude: dto.latitude, longitude: dto.longitude } } },
+        { new: true },
+      );
+    }
+
+    return path;
+  }
+
+  /**
    * Get history of completed community runs that the user participated in.
    */
   async getRunsHistory(userId: string) {
@@ -464,6 +505,7 @@ export class CommunityService {
       .populate('communityId', 'name image')
       .populate('createdBy', 'first_name last_name display_name email image')
       .populate('participants', 'first_name last_name display_name email image')
+      .populate('pathId')
       .sort({ date: -1 });
   }
 }

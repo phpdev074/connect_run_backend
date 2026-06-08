@@ -17,6 +17,8 @@ import { PaceService } from './pace.service';
 import { CreatePaceDto } from './dto/create-pace.dto';
 import { UpdatePaceDto } from './dto/update-pace.dto';
 import { AddMembersDto } from './dto/add-members.dto';
+import { RecordCoordinateDto } from '../community/dto/record-coordinate.dto';
+
 
 @ApiTags('Pace')
 @ApiBearerAuth()
@@ -120,6 +122,23 @@ export class PaceController {
       statusCode: HttpStatus.OK,
       success: true,
       message: 'Pace marked as completed successfully',
+      data,
+    };
+  }
+
+  @Post('runs/:runId/coordinates')
+  @ApiOperation({ summary: 'Record a coordinate point for an ongoing Pace run' })
+  @ApiBody({ type: RecordCoordinateDto })
+  async recordCoordinate(
+    @Param('runId') runId: string,
+    @Req() req,
+    @Body() body: RecordCoordinateDto,
+  ) {
+    const data = await this.paceService.recordRunCoordinate(req.user.id, runId, body);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Run coordinate recorded successfully',
       data,
     };
   }

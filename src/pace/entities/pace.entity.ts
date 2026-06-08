@@ -35,6 +35,9 @@ export class Pace {
   @Prop({ default: 'upcoming', enum: ['upcoming', 'completed'] })
   status: string;
 
+  @Prop({ type: Types.ObjectId, ref: 'PaceRunPath', default: null })
+  pathId?: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
 

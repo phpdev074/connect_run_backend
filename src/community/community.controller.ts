@@ -18,6 +18,7 @@ import { CreateCommunityDto } from './dto/create-community.dto';
 import { UpdateCommunityDto } from './dto/update-community.dto';
 import { AddMembersDto } from './dto/add-members.dto';
 import { CreateCommunityRunDto } from './dto/create-community-run.dto';
+import { RecordCoordinateDto } from './dto/record-coordinate.dto';
 
 @ApiTags('Community')
 @ApiBearerAuth()
@@ -139,6 +140,23 @@ export class CommunityController {
       statusCode: HttpStatus.OK,
       success: true,
       message: 'Community run marked as completed successfully',
+      data,
+    };
+  }
+
+  @Post('runs/:runId/coordinates')
+  @ApiOperation({ summary: 'Record a coordinate point for an ongoing community run' })
+  @ApiBody({ type: RecordCoordinateDto })
+  async recordCoordinate(
+    @Param('runId') runId: string,
+    @Req() req,
+    @Body() body: RecordCoordinateDto,
+  ) {
+    const data = await this.communityService.recordRunCoordinate(req.user.id, runId, body);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Run coordinate recorded successfully',
       data,
     };
   }

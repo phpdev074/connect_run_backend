@@ -2,11 +2,13 @@ import { Injectable, BadRequestException, NotFoundException, ForbiddenException 
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Pace, PaceDocument } from './entities/pace.entity';
+import { PaceRunPath, PaceRunPathDocument } from './entities/pace-run-path.entity';
 import { User, UserDocument } from '../users/entities/user.entity';
 import { Match, MatchDocument } from '../matches/entities/match.entity';
 import { CreatePaceDto } from './dto/create-pace.dto';
 import { UpdatePaceDto } from './dto/update-pace.dto';
 import { AddMembersDto } from './dto/add-members.dto';
+import { RecordCoordinateDto } from '../community/dto/record-coordinate.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RewardsService } from '../rewards/rewards.service';
 
@@ -16,6 +18,7 @@ export class PaceService {
     @InjectModel(Pace.name) private paceModel: Model<PaceDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Match.name) private matchModel: Model<MatchDocument>,
+    @InjectModel(PaceRunPath.name) private paceRunPathModel: Model<PaceRunPathDocument>,
     private readonly notificationsService: NotificationsService,
     private readonly rewardsService: RewardsService,
   ) { }
@@ -156,7 +159,8 @@ export class PaceService {
     const pace = await this.paceModel
       .findById(id)
       .populate('createdBy', 'first_name last_name display_name email image')
-      .populate('members', 'first_name last_name display_name email image');
+      .populate('members', 'first_name last_name display_name email image')
+      .populate('pathId');
 
     if (!pace) {
       throw new NotFoundException('Pace not found');
@@ -415,6 +419,45 @@ export class PaceService {
       })
       .populate('createdBy', 'first_name last_name display_name email image')
       .populate('members', 'first_name last_name display_name email image')
+      .populate('pathId')
       .sort({ date: -1 });
+  }
+
+  /**
+   * Record a single GPS coordinate point for an ongoing Pace run.
+   */
+  async recordRunCoordinate(userId: string, runId: string, dto: RecordCoordinateDto) {
+    const pace = await this.paceModel.findById(runId);
+    if (!pace) {
+      throw new NotFoundException('Pace run not found');
+    }
+
+    // Allow members or creator/host to record coordinates
+    const isMember = pace.members.some((m) => m.toString() === userId);
+    if (!isMember && pace.createdBy.toString() !== userId) {
+      throw new ForbiddenException('You are not a member of this Pace run');
+    }
+
+    let path = await this.paceRunPathModel.findOne({ paceId: pace._id });
+
+    if (!path) {
+      // Create new path document
+      path = await this.paceRunPathModel.create({
+        paceId: pace._id,
+        gpsTrack: [{ latitude: dto.latitude, longitude: dto.longitude }],
+      });
+      // Link the path to the pace run
+      pace.pathId = path._id as Types.ObjectId;
+      await pace.save();
+    } else {
+      // Append coordinate to existing path
+      path = await this.paceRunPathModel.findOneAndUpdate(
+        { paceId: pace._id },
+        { $push: { gpsTrack: { latitude: dto.latitude, longitude: dto.longitude } } },
+        { new: true },
+      );
+    }
+
+    return path;
   }
 }

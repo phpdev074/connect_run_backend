@@ -5,10 +5,12 @@ import { Group, GroupDocument } from './entities/group.entity';
 import { User, UserDocument } from '../users/entities/user.entity';
 import { Match, MatchDocument } from '../matches/entities/match.entity';
 import { GroupRun, GroupRunDocument } from './entities/group-run.entity';
+import { GroupRunPath, GroupRunPathDocument } from './entities/group-run-path.entity';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { AddMembersDto } from './dto/add-members.dto';
 import { CreateGroupRunDto } from './dto/create-group-run.dto';
+import { RecordCoordinateDto } from '../community/dto/record-coordinate.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
@@ -18,6 +20,7 @@ export class GroupService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Match.name) private matchModel: Model<MatchDocument>,
     @InjectModel(GroupRun.name) private groupRunModel: Model<GroupRunDocument>,
+    @InjectModel(GroupRunPath.name) private groupRunPathModel: Model<GroupRunPathDocument>,
     private readonly notificationsService: NotificationsService,
   ) { }
 
@@ -443,6 +446,45 @@ export class GroupService {
       .populate('groupId', 'name image')
       .populate('createdBy', 'first_name last_name display_name email image')
       .populate('participants', 'first_name last_name display_name email image')
+      .populate('pathId')
       .sort({ date: -1 });
+  }
+
+  /**
+   * Record a single GPS coordinate point for an ongoing group run.
+   */
+  async recordRunCoordinate(userId: string, runId: string, dto: RecordCoordinateDto) {
+    const run = await this.groupRunModel.findById(runId);
+    if (!run) {
+      throw new NotFoundException('Group run not found');
+    }
+
+    // Allow participants or creator to record coordinates
+    const isParticipant = run.participants.some((p) => p.toString() === userId);
+    if (!isParticipant && run.createdBy.toString() !== userId) {
+      throw new ForbiddenException('You are not a participant in this group run');
+    }
+
+    let path = await this.groupRunPathModel.findOne({ groupRunId: run._id });
+
+    if (!path) {
+      // Create new path document
+      path = await this.groupRunPathModel.create({
+        groupRunId: run._id,
+        gpsTrack: [{ latitude: dto.latitude, longitude: dto.longitude }],
+      });
+      // Link the path to the run
+      run.pathId = path._id as Types.ObjectId;
+      await run.save();
+    } else {
+      // Append coordinate to existing path
+      path = await this.groupRunPathModel.findOneAndUpdate(
+        { groupRunId: run._id },
+        { $push: { gpsTrack: { latitude: dto.latitude, longitude: dto.longitude } } },
+        { new: true },
+      );
+    }
+
+    return path;
   }
 }
