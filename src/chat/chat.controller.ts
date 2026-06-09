@@ -19,7 +19,13 @@ export class ChatController {
   async createChat(@Req() req, @Body() body: CreateChatDto) {
     // Always include the creator in the participants
     const participants = Array.from(new Set([req.user.id, ...body.participants]));
-    const data = await this.chatService.createChat(req.user.id, participants, body.groupName);
+    const data = await this.chatService.createChat(
+      req.user.id,
+      participants,
+      body.groupName,
+      body.type,
+      body.referenceId,
+    );
     return {
       statusCode: HttpStatus.CREATED,
       success: true,

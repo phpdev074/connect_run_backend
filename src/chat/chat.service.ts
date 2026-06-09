@@ -52,25 +52,32 @@ export class ChatService {
     return matches.some(match => match.users.some(u => u._id.toString() === targetId));
   }
 
-  async createChat(creatorId: string, participantIds: string[], groupName?: string) {
-    // For single chat, check if matched (if only 2 participants)
-    if (participantIds.length === 2) {
+  async createChat(creatorId: string, participantIds: string[], groupName?: string, type?: string, referenceId?: string) {
+    // For single chat, check if matched (if only 2 participants and it's a direct chat)
+    if (participantIds.length === 2 && (!type || type === 'direct')) {
       const [userA, userB] = participantIds;
       const canChat = await this.canUsersChat(userA, userB);
       if (!canChat) throw new ForbiddenException('You can only chat with matched users');
     }
     const objectIds = participantIds.map(id => new Types.ObjectId(id));
-    // Check if chat already exists (for single chat)
+    // Check if chat already exists (for single chat or specific referenceId if provided)
     let chat;
-    if (participantIds.length === 2) {
-      chat = await this.chatModel.findOne({ participants: { $all: objectIds, $size: 2 } });
+    if (referenceId) {
+      chat = await this.chatModel.findOne({ referenceId: new Types.ObjectId(referenceId) });
+    } else if (participantIds.length === 2 && (!type || type === 'direct')) {
+      chat = await this.chatModel.findOne({
+        participants: { $all: objectIds, $size: 2 },
+        type: { $in: [null, 'direct'] },
+      });
     }
     if (!chat) {
       chat = await this.chatModel.create({
         participants: objectIds,
-        isLocked: participantIds.length === 2, // Lock only for single chat
+        isLocked: participantIds.length === 2 && (!type || type === 'direct'), // Lock only for single chat
         lastActivity: new Date(),
         ...(groupName ? { groupName } : {}),
+        type: type || (participantIds.length > 2 ? 'group' : 'direct'),
+        referenceId: referenceId ? new Types.ObjectId(referenceId) : null,
       });
     }
     return chat.populate('participants', 'first_name last_name display_name image');

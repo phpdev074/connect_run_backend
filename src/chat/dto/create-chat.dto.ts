@@ -12,4 +12,14 @@ export class CreateChatDto {
   @IsOptional()
   @IsString()
   groupName?: string;
+
+  @ApiProperty({ example: 'direct', enum: ['direct', 'group', 'community', 'pace'], required: false })
+  @IsOptional()
+  @IsString()
+  type?: string;
+
+  @ApiProperty({ example: '65eaf...', required: false })
+  @IsOptional()
+  @IsString()
+  referenceId?: string;
 }
