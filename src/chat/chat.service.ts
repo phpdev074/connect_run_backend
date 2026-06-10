@@ -125,7 +125,11 @@ export class ChatService {
       readBy: [new Types.ObjectId(userId)],
     });
 
-    const notificationBody = type === 'image' ? '📷 Image' : content;
+    // const notificationBody = type === 'image' ? '📷 Image' : content;
+
+    let notificationBody = content;
+    if (type === 'image') notificationBody = '📷 Image';
+    else if (type === 'video') notificationBody = '🎥 Video';
 
     const data = await this.chatModel.findByIdAndUpdate(
       chatId,
@@ -229,7 +233,13 @@ export class ChatService {
                 $cond: {
                   if: { $eq: [{ $ifNull: ['$$lastDoc.type', 'text'] }, 'image'] },
                   then: '📷 Image',
-                  else: { $ifNull: ['$$lastDoc.content', ''] },
+                  else: {
+                    $cond: {
+                      if: { $eq: [{ $ifNull: ['$$lastDoc.type', 'text'] }, 'video'] },
+                      then: '🎥 Video',
+                      else: { $ifNull: ['$$lastDoc.content', ''] },
+                    },
+                  },
                 },
               },
             },
