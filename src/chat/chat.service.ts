@@ -136,6 +136,9 @@ export class ChatService {
       { new: true }
     );
     console.log('🚀 ~ ChatService ~ sendMessage ~ data:', data)
+    console.log('\n--------------------------------------------------');
+    console.log(`[MESSAGE LOG] Sent by: ${userId} | Type: ${type} | Preview: ${notificationBody}`);
+    console.log('--------------------------------------------------\n');
     // Send push notification to all other participants
     const recipientIds = chat.participants.filter(p => p.toString() !== userId);
 
