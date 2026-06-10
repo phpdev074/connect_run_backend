@@ -125,10 +125,16 @@ export class ChatService {
       readBy: [new Types.ObjectId(userId)],
     });
 
-    const data = await this.chatModel.findByIdAndUpdate(chatId, {
-      lastMessage: content,
-      lastActivity: new Date(),
-    });
+    const notificationBody = type === 'image' ? '📷 Image' : content;
+
+    const data = await this.chatModel.findByIdAndUpdate(
+      chatId,
+      {
+        lastMessage: notificationBody,
+        lastActivity: new Date(),
+      },
+      { new: true }
+    );
     console.log('🚀 ~ ChatService ~ sendMessage ~ data:', data)
     // Send push notification to all other participants
     const recipientIds = chat.participants.filter(p => p.toString() !== userId);
@@ -142,7 +148,7 @@ export class ChatService {
         await this.notificationsService.sendNotification(
           recipientId.toString(),
           `New message from ${senderName}`,
-          content,
+          notificationBody,
           'CHAT_MESSAGE',
           JSON.stringify(data)
         );
@@ -213,7 +219,18 @@ export class ChatService {
       {
         $addFields: {
           unreadCount: { $ifNull: [{ $arrayElemAt: ['$unreadMessages.count', 0] }, 0] },
-          lastMessage: { $ifNull: [{ $arrayElemAt: ['$lastMessageDoc.content', 0] }, ''] },
+          lastMessage: {
+            $let: {
+              vars: { lastDoc: { $arrayElemAt: ['$lastMessageDoc', 0] } },
+              in: {
+                $cond: {
+                  if: { $eq: [{ $ifNull: ['$$lastDoc.type', 'text'] }, 'image'] },
+                  then: '📷 Image',
+                  else: { $ifNull: ['$$lastDoc.content', ''] },
+                },
+              },
+            },
+          },
         },
       },
       {
