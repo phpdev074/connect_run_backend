@@ -115,7 +115,13 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   async handleSendMessage(@MessageBody() data: any, @ConnectedSocket() client: Socket) {
     try {
       const chatId = data.chatId.toString();
-      const message = await this.chatService.sendMessage(data.senderId.toString(), chatId, data.content);
+      const message = await this.chatService.sendMessage(
+        data.senderId.toString(),
+        chatId,
+        data.content,
+        data.type,
+        data.metadata,
+      );
       this.server.to(chatId).emit('newMessage', message);
       this.logger.debug(`Broadcasted newMessage to room: ${chatId}`);
       // return message;

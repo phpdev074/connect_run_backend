@@ -94,7 +94,7 @@ export class ChatController {
     @Param('id') id: string,
     @Body() body: SendMessageDto,
   ) {
-    const data = await this.chatService.sendMessage(req.user.id, id, body.content, body.type);
+    const data = await this.chatService.sendMessage(req.user.id, id, body.content, body.type, body.metadata);
     return {
       statusCode: HttpStatus.CREATED,
       success: true,
