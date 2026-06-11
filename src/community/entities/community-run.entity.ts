@@ -38,6 +38,9 @@ export class CommunityRun {
   @Prop({ type: Types.ObjectId, ref: 'CommunityRunPath', default: null })
   pathId?: Types.ObjectId;
 
+  @Prop({ default: 'in-person', enum: ['in-person', 'virtual'] })
+  runType: string;
+
   @Prop({ default: 'upcoming', enum: ['upcoming', 'completed'] })
   status: string;
 }

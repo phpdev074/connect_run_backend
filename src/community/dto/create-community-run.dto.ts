@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsOptional, IsDateString, IsNumber } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsDateString, IsNumber, IsEnum } from 'class-validator';
 
 export class CreateCommunityRunDto {
   @ApiProperty({ example: 'Saturday Morning Jog' })
@@ -36,4 +36,9 @@ export class CreateCommunityRunDto {
   @IsString()
   @IsOptional()
   location?: string;
+
+  @ApiProperty({ example: 'in-person', enum: ['in-person', 'virtual'], required: false })
+  @IsEnum(['in-person', 'virtual'])
+  @IsOptional()
+  runType?: string;
 }

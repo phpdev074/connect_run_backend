@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsOptional, IsArray, IsNumber, IsDateString } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsArray, IsNumber, IsDateString, IsEnum } from 'class-validator';
 
 export class CreatePaceDto {
   @ApiProperty({ example: 'Morning Runners' })
@@ -56,4 +56,9 @@ export class CreatePaceDto {
   @IsArray()
   @IsOptional()
   members?: string[];
+
+  @ApiProperty({ example: 'in-person', enum: ['in-person', 'virtual'], required: false })
+  @IsEnum(['in-person', 'virtual'])
+  @IsOptional()
+  runType?: string;
 }

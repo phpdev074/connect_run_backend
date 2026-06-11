@@ -38,6 +38,9 @@ export class GroupRun {
   @Prop({ type: Types.ObjectId, ref: 'GroupRunPath', default: null })
   pathId?: Types.ObjectId;
 
+  @Prop({ default: 'in-person', enum: ['in-person', 'virtual'] })
+  runType: string;
+
   @Prop({ default: 'upcoming', enum: ['upcoming', 'completed'] })
   status: string;
 

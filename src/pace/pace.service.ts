@@ -215,6 +215,7 @@ export class PaceService {
     if (updatePaceDto.date !== undefined) pace.date = updatePaceDto.date ? new Date(updatePaceDto.date) : undefined;
     if (updatePaceDto.time !== undefined) pace.time = updatePaceDto.time;
     if (updatePaceDto.status !== undefined) pace.status = updatePaceDto.status;
+    if (updatePaceDto.runType !== undefined) pace.runType = updatePaceDto.runType;
 
     await pace.save();
 

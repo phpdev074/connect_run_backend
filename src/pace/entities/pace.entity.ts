@@ -43,6 +43,9 @@ export class Pace {
 
   @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
   members: Types.ObjectId[];
+
+  @Prop({ default: 'in-person', enum: ['in-person', 'virtual'] })
+  runType: string;
 }
 
 export const PaceSchema = SchemaFactory.createForClass(Pace);
