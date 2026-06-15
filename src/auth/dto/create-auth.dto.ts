@@ -165,4 +165,15 @@ export class RegisterDto {
   @IsString()
   @IsOptional()
   deviceToken?: string;
+
+  @ApiProperty({
+    type: [String],
+    example: ['matches1', 'matches2'],
+    description: 'User match preferences',
+    required: false,
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  match_preferences?: string[];
 }

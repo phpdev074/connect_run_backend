@@ -137,6 +137,9 @@ export class User {
 
   @Prop()
   lastSeen?: Date;
+
+  @Prop({ type: [String], default: [] })
+  match_preferences?: string[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
