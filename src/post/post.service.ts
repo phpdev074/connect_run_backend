@@ -48,10 +48,14 @@ export class PostService {
     const filter: any = { is_active: true };
     const countFilter: any = { is_active: true };
 
-    const hasCoordinates = queryLng !== null && queryLat !== null;
+    const maxDistanceParam = query.maxDistance !== undefined ? Number(query.maxDistance) : null;
+    const hasValidRadius = maxDistanceParam !== null && !isNaN(maxDistanceParam) && maxDistanceParam > 0;
 
-    if (hasCoordinates) {
-      const maxDist = (Number(query.maxDistance) || 50) * 1000; // convert km to meters
+    const hasCoordinates = queryLng !== null && queryLat !== null;
+    const runProximitySearch = hasCoordinates && hasValidRadius;
+
+    if (runProximitySearch) {
+      const maxDist = maxDistanceParam * 1000; // convert km to meters
       
       filter.location = {
         $near: {
@@ -74,7 +78,7 @@ export class PostService {
     }
 
     const queryBuilder = this.postModel.find(filter);
-    if (!hasCoordinates) {
+    if (!runProximitySearch) {
       queryBuilder.sort({ created_at: -1 });
     }
 

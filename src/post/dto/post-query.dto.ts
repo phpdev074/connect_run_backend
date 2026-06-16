@@ -36,7 +36,7 @@ export class PostQueryDto {
 
   @ApiPropertyOptional({
     example: '50',
-    description: 'Max distance in kilometers (default: 50)',
+    description: 'Max distance in kilometers (optional, proximity search only applied if > 0)',
   })
   @IsOptional()
   @IsNumberString()
