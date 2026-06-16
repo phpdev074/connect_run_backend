@@ -21,6 +21,7 @@ import { LiveStreamingModule } from './live-streaming/live-streaming.module';
 import { CommunityModule } from './community/community.module';
 import { GroupModule } from './group/group.module';
 import { PaceModule } from './pace/pace.module';
+import { PostModule } from './post/post.module';
 
 
 
@@ -60,7 +61,8 @@ import { PaceModule } from './pace/pace.module';
     LiveStreamingModule,
     CommunityModule,
     GroupModule,
-    PaceModule
+    PaceModule,
+    PostModule
 
   ],
 })
