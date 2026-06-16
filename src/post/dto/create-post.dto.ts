@@ -1,5 +1,17 @@
-import { IsString, IsOptional, IsArray, IsBoolean } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional, IsArray, IsBoolean, IsNumber, ValidateNested } from 'class-validator';
+import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+
+class LocationDto {
+  @ApiProperty({ example: 'Point', default: 'Point' })
+  @IsString()
+  type: string;
+
+  @ApiProperty({ type: [Number], example: [77.1025, 28.7041], description: '[longitude, latitude]' })
+  @IsArray()
+  @IsNumber({}, { each: true })
+  coordinates: [number, number];
+}
 
 export class CreatePostDto {
   @ApiPropertyOptional({ description: 'Title of the post', example: 'My Travel Log' })
@@ -31,4 +43,10 @@ export class CreatePostDto {
   @IsOptional()
   @IsBoolean()
   is_active?: boolean;
+
+  @ApiPropertyOptional({ type: LocationDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => LocationDto)
+  location?: LocationDto;
 }

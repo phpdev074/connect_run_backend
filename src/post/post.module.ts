@@ -5,6 +5,7 @@ import { PostController } from './post.controller';
 import { Post, PostSchema } from './entities/post.entity';
 import { Like, LikeSchema } from './entities/like.entity';
 import { Comment, CommentSchema } from './entities/comment.entity';
+import { User, UserSchema } from '../users/entities/user.entity';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { Comment, CommentSchema } from './entities/comment.entity';
       { name: Post.name, schema: PostSchema },
       { name: Like.name, schema: LikeSchema },
       { name: Comment.name, schema: CommentSchema },
+      { name: User.name, schema: UserSchema },
     ]),
   ],
   controllers: [PostController],

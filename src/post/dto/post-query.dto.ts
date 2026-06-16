@@ -17,4 +17,28 @@ export class PostQueryDto {
   @IsOptional()
   @IsNumberString()
   limit?: string;
+
+  @ApiPropertyOptional({
+    example: '77.1025',
+    description: 'Longitude for location search',
+  })
+  @IsOptional()
+  @IsNumberString()
+  longitude?: string;
+
+  @ApiPropertyOptional({
+    example: '28.7041',
+    description: 'Latitude for location search',
+  })
+  @IsOptional()
+  @IsNumberString()
+  latitude?: string;
+
+  @ApiPropertyOptional({
+    example: '50',
+    description: 'Max distance in kilometers (default: 50)',
+  })
+  @IsOptional()
+  @IsNumberString()
+  maxDistance?: string;
 }

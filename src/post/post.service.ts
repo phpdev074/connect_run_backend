@@ -7,6 +7,7 @@ import { Comment, CommentDocument } from './entities/comment.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { PostQueryDto } from './dto/post-query.dto';
+import { User, UserDocument } from '../users/entities/user.entity';
 
 @Injectable()
 export class PostService {
@@ -14,6 +15,7 @@ export class PostService {
     @InjectModel(Post.name) private postModel: Model<PostDocument>,
     @InjectModel(Like.name) private likeModel: Model<LikeDocument>,
     @InjectModel(Comment.name) private commentModel: Model<CommentDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
   async create(userId: string, createPostDto: CreatePostDto) {
@@ -29,15 +31,60 @@ export class PostService {
     const limit = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    let queryLng = query.longitude ? Number(query.longitude) : null;
+    let queryLat = query.latitude ? Number(query.latitude) : null;
+
+    if (queryLng === null || queryLat === null) {
+      const user = await this.userModel.findById(currentUserId).select('location').lean();
+      if (user?.location?.coordinates && user.location.coordinates.length === 2) {
+        const [userLng, userLat] = user.location.coordinates;
+        if (userLng !== 0 || userLat !== 0) {
+          queryLng = userLng;
+          queryLat = userLat;
+        }
+      }
+    }
+
+    const filter: any = { is_active: true };
+    const countFilter: any = { is_active: true };
+
+    const hasCoordinates = queryLng !== null && queryLat !== null;
+
+    if (hasCoordinates) {
+      const maxDist = (Number(query.maxDistance) || 50) * 1000; // convert km to meters
+      
+      filter.location = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [queryLng, queryLat],
+          },
+          $maxDistance: maxDist,
+        },
+      };
+
+      countFilter.location = {
+        $geoWithin: {
+          $centerSphere: [
+            [queryLng, queryLat],
+            maxDist / 6378100,
+          ],
+        },
+      };
+    }
+
+    const queryBuilder = this.postModel.find(filter);
+    if (!hasCoordinates) {
+      queryBuilder.sort({ created_at: -1 });
+    }
+
     const [posts, total] = await Promise.all([
-      this.postModel
-        .find({ is_active: true })
+      queryBuilder
         .populate('user_id', 'first_name last_name display_name image')
-        .sort({ created_at: -1 })
         .skip(skip)
         .limit(limit)
         .exec(),
-      this.postModel.countDocuments({ is_active: true }),
+      this.postModel.countDocuments(countFilter),
     ]);
 
     const data = await Promise.all(
