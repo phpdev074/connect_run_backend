@@ -84,7 +84,7 @@ export class PostService {
 
     const [posts, total] = await Promise.all([
       queryBuilder
-        .populate('user_id', 'first_name last_name display_name image')
+        .populate('user_id', 'first_name last_name display_name image profile_galary')
         .skip(skip)
         .limit(limit)
         .exec(),
@@ -132,7 +132,7 @@ export class PostService {
     const [posts, total] = await Promise.all([
       this.postModel
         .find(filter)
-        .populate('user_id', 'first_name last_name display_name image')
+        .populate('user_id', 'first_name last_name display_name image profile_galary')
         .sort({ created_at: -1 })
         .skip(skip)
         .limit(limit)
@@ -174,7 +174,7 @@ export class PostService {
   async findOne(id: string, currentUserId: string) {
     const post = await this.postModel
       .findById(id)
-      .populate('user_id', 'first_name last_name display_name image')
+      .populate('user_id', 'first_name last_name display_name image profile_galary')
       .exec();
 
     if (!post) {
@@ -190,7 +190,7 @@ export class PostService {
       }),
       this.commentModel
         .find({ post_id: post._id })
-        .populate('user_id', 'first_name last_name display_name image')
+        .populate('user_id', 'first_name last_name display_name image profile_galary')
         .sort({ created_at: 1 })
         .exec(),
     ]);
@@ -289,6 +289,6 @@ export class PostService {
       text,
     });
 
-    return comment.populate('user_id', 'first_name last_name display_name image');
+    return comment.populate('user_id', 'first_name last_name display_name image profile_galary');
   }
 }
