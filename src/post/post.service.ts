@@ -248,8 +248,18 @@ export class PostService {
       throw new ForbiddenException('You are not authorized to delete this comment');
     }
 
-    await this.commentModel.findByIdAndDelete(commentId);
+    await this.deleteCommentAndRepliesRecursively(comment._id as Types.ObjectId);
     return { deleted: true };
+  }
+
+  private async deleteCommentAndRepliesRecursively(commentId: Types.ObjectId) {
+    // Find direct child replies
+    const replies = await this.commentModel.find({ parentCommentId: commentId }).exec();
+    for (const reply of replies) {
+      await this.deleteCommentAndRepliesRecursively(reply._id as Types.ObjectId);
+    }
+    // Delete the comment itself
+    await this.commentModel.findByIdAndDelete(commentId);
   }
 
   async toggleLike(userId: string, id: string) {
@@ -277,16 +287,29 @@ export class PostService {
     return { liked };
   }
 
-  async addComment(userId: string, id: string, text: string) {
+  async addComment(userId: string, id: string, text: string, parentCommentId?: string) {
     const post = await this.postModel.findById(id);
     if (!post) {
       throw new NotFoundException('Post not found');
+    }
+
+    let parentCommentIdObj: Types.ObjectId | null = null;
+    if (parentCommentId) {
+      const parentComment = await this.commentModel.findById(parentCommentId);
+      if (!parentComment) {
+        throw new NotFoundException('Parent comment not found');
+      }
+      if (parentComment.post_id.toString() !== id) {
+        throw new ForbiddenException('Parent comment does not belong to this post');
+      }
+      parentCommentIdObj = parentComment._id as Types.ObjectId;
     }
 
     const comment = await this.commentModel.create({
       post_id: new Types.ObjectId(id),
       user_id: new Types.ObjectId(userId),
       text,
+      parentCommentId: parentCommentIdObj,
     });
 
     return comment.populate('user_id', 'first_name last_name display_name image profile_galary');

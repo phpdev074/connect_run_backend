@@ -32,6 +32,10 @@ export class Comment {
 
   created_at: Date;
   updated_at: Date;
+
+  // If null → top-level comment
+  @Prop({ type: Types.ObjectId, ref: 'Comment', default: null, index: true })
+  parentCommentId?: Types.ObjectId;
 }
 
 export const CommentSchema = SchemaFactory.createForClass(Comment);

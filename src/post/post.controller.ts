@@ -140,7 +140,12 @@ export class PostController {
     @Param('id') id: string,
     @Body() createCommentDto: CreateCommentDto,
   ) {
-    const data = await this.postService.addComment(req.user.id, id, createCommentDto.text);
+    const data = await this.postService.addComment(
+      req.user.id,
+      id,
+      createCommentDto.text,
+      createCommentDto.parentCommentId,
+    );
     return {
       statusCode: HttpStatus.OK,
       success: true,
