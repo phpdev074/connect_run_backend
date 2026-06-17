@@ -18,6 +18,7 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { PostQueryDto } from './dto/post-query.dto';
+import { CreateReportDto } from './dto/create-report.dto';
 
 @ApiTags('Posts')
 @ApiBearerAuth()
@@ -79,6 +80,18 @@ export class PostController {
     };
   }
 
+  @Get('reports')
+  @ApiOperation({ summary: 'Get list of reported posts with nested reporter details' })
+  async getReportedPosts() {
+    const data = await this.postService.getReportedPosts();
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Reported posts fetched successfully',
+      data,
+    };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get single post details' })
   async findOne(@Req() req, @Param('id') id: string) {
@@ -87,6 +100,30 @@ export class PostController {
       statusCode: HttpStatus.OK,
       success: true,
       message: 'Post details fetched successfully',
+      data,
+    };
+  }
+
+  @Get(':id/likers')
+  @ApiOperation({ summary: 'Get list of users who liked the post' })
+  async getLikers(@Param('id') id: string) {
+    const data = await this.postService.getPostLikers(id);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Likers fetched successfully',
+      data,
+    };
+  }
+
+  @Get(':id/commenters')
+  @ApiOperation({ summary: 'Get list of unique users who commented or replied on the post' })
+  async getCommenters(@Param('id') id: string) {
+    const data = await this.postService.getPostCommenters(id);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Commenters fetched successfully',
       data,
     };
   }
@@ -129,6 +166,35 @@ export class PostController {
       success: true,
       message: liked ? 'Post liked successfully' : 'Post unliked successfully',
       data: { liked },
+    };
+  }
+
+  @Post(':id/watch')
+  @ApiOperation({ summary: 'Increment the watch count of a post' })
+  async incrementWatchCount(@Param('id') id: string) {
+    const data = await this.postService.incrementWatchCount(id);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Watch count incremented successfully',
+      data,
+    };
+  }
+
+  @Post(':id/report')
+  @ApiOperation({ summary: 'Report a post' })
+  @ApiBody({ type: CreateReportDto })
+  async reportPost(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() createReportDto: CreateReportDto,
+  ) {
+    const data = await this.postService.reportPost(req.user.id, id, createReportDto.reason);
+    return {
+      statusCode: HttpStatus.CREATED,
+      success: true,
+      message: 'Post reported successfully',
+      data,
     };
   }
 

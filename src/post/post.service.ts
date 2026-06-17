@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Post, PostDocument } from './entities/post.entity';
 import { Like, LikeDocument } from './entities/like.entity';
 import { Comment, CommentDocument } from './entities/comment.entity';
+import { Report, ReportDocument } from './entities/report.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { PostQueryDto } from './dto/post-query.dto';
@@ -15,6 +16,7 @@ export class PostService {
     @InjectModel(Post.name) private postModel: Model<PostDocument>,
     @InjectModel(Like.name) private likeModel: Model<LikeDocument>,
     @InjectModel(Comment.name) private commentModel: Model<CommentDocument>,
+    @InjectModel(Report.name) private reportModel: Model<ReportDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
@@ -47,6 +49,11 @@ export class PostService {
 
     const filter: any = { is_active: true };
     const countFilter: any = { is_active: true };
+
+    if (query.postType) {
+      filter.postType = query.postType;
+      countFilter.postType = query.postType;
+    }
 
     const maxDistanceParam = query.maxDistance !== undefined ? Number(query.maxDistance) : null;
     const hasValidRadius = maxDistanceParam !== null && !isNaN(maxDistanceParam) && maxDistanceParam > 0;
@@ -127,7 +134,10 @@ export class PostService {
     const limit = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const filter = { user_id: new Types.ObjectId(userId) };
+    const filter: any = { user_id: new Types.ObjectId(userId) };
+    if (query.postType) {
+      filter.postType = query.postType;
+    }
 
     const [posts, total] = await Promise.all([
       this.postModel
@@ -313,5 +323,220 @@ export class PostService {
     });
 
     return comment.populate('user_id', 'first_name last_name display_name image profile_galary');
+  }
+
+  async getPostLikers(postId: string) {
+    const post = await this.postModel.findById(postId);
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    const likes = await this.likeModel
+      .find({ post_id: new Types.ObjectId(postId) })
+      .populate('user_id', 'first_name last_name display_name image profile_galary')
+      .exec();
+
+    return likes.map((like) => like.user_id).filter((user) => user !== null);
+  }
+
+  async getPostCommenters(postId: string) {
+    const post = await this.postModel.findById(postId);
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    const comments = await this.commentModel
+      .find({ post_id: new Types.ObjectId(postId) })
+      .populate('user_id', 'first_name last_name display_name image profile_galary')
+      .sort({ created_at: 1 })
+      .exec();
+
+    const commentMap = new Map<string, any>();
+    const rootComments: any[] = [];
+
+    // Initialize all comments in the map with a replies array
+    for (const comment of comments) {
+      const commentObj = {
+        ...comment.toObject(),
+        replies: [],
+      };
+      commentMap.set(commentObj._id.toString(), commentObj);
+    }
+
+    // Associate child replies to parent comments
+    for (const comment of comments) {
+      const commentObj = commentMap.get(comment._id.toString());
+      if (comment.parentCommentId) {
+        const parentIdStr = comment.parentCommentId.toString();
+        const parentObj = commentMap.get(parentIdStr);
+        if (parentObj) {
+          parentObj.replies.push(commentObj);
+        } else {
+          rootComments.push(commentObj);
+        }
+      } else {
+        rootComments.push(commentObj);
+      }
+    }
+
+    return rootComments;
+  }
+
+  async incrementWatchCount(postId: string) {
+    const post = await this.postModel.findByIdAndUpdate(
+      postId,
+      { $inc: { watchCount: 1 } },
+      { new: true }
+    );
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+    return { watchCount: post.watchCount };
+  }
+
+  async reportPost(userId: string, postId: string, reason?: string) {
+    const post = await this.postModel.findById(postId);
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    const existingReport = await this.reportModel.findOne({
+      post_id: new Types.ObjectId(postId),
+      user_id: new Types.ObjectId(userId),
+    });
+
+    if (existingReport) {
+      throw new ConflictException('You have already reported this post');
+    }
+
+    const report = await this.reportModel.create({
+      post_id: new Types.ObjectId(postId),
+      user_id: new Types.ObjectId(userId),
+      reason,
+    });
+
+    return report;
+  }
+
+  async getReportedPosts() {
+    return this.reportModel.aggregate([
+      {
+        $group: {
+          _id: '$post_id',
+          reports: {
+            $push: {
+              user_id: '$user_id',
+              reason: '$reason',
+              created_at: '$created_at',
+            },
+          },
+          totalReports: { $sum: 1 },
+        },
+      },
+      {
+        $lookup: {
+          from: 'posts',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'post',
+        },
+      },
+      {
+        $unwind: '$post',
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'post.user_id',
+          foreignField: '_id',
+          as: 'postUser',
+        },
+      },
+      {
+        $unwind: {
+          path: '$postUser',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'reports.user_id',
+          foreignField: '_id',
+          as: 'reportingUsers',
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          post_id: '$_id',
+          totalReports: 1,
+          post: {
+            _id: '$post._id',
+            title: '$post.title',
+            text: '$post.text',
+            urls: '$post.urls',
+            postType: '$post.postType',
+            watchCount: '$post.watchCount',
+            is_active: '$post.is_active',
+            created_at: '$post.created_at',
+            updated_at: '$post.updated_at',
+            user_id: {
+              _id: '$postUser._id',
+              first_name: '$postUser.first_name',
+              last_name: '$postUser.last_name',
+              display_name: '$postUser.display_name',
+              profile_galary: '$postUser.profile_galary',
+            },
+          },
+          reports: {
+            $map: {
+              input: '$reports',
+              as: 'rep',
+              in: {
+                reason: '$$rep.reason',
+                created_at: '$$rep.created_at',
+                user: {
+                  $arrayElemAt: [
+                    {
+                      $filter: {
+                        input: '$reportingUsers',
+                        as: 'u',
+                        cond: { $eq: ['$$u._id', '$$rep.user_id'] },
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          post_id: 1,
+          post: 1,
+          totalReports: 1,
+          reports: {
+            $map: {
+              input: '$reports',
+              as: 'rep',
+              in: {
+                reason: '$$rep.reason',
+                created_at: '$$rep.created_at',
+                user: {
+                  _id: '$$rep.user._id',
+                  first_name: '$$rep.user.first_name',
+                  last_name: '$$rep.user.last_name',
+                  display_name: '$$rep.user.display_name',
+                  profile_galary: '$$rep.user.profile_galary',
+                },
+              },
+            },
+          },
+        },
+      },
+    ]).exec();
   }
 }

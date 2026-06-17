@@ -27,6 +27,9 @@ export class Post {
     @Prop({ default: 'image', trim: true })
     postType?: string;
 
+    @Prop({ default: 0, type: Number })
+    watchCount?: number;
+
     @Prop({ default: true })
     is_active?: boolean;
 

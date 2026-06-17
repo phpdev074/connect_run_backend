@@ -1,4 +1,4 @@
-import { IsNumberString, IsOptional } from 'class-validator';
+import { IsNumberString, IsOptional, IsString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class PostQueryDto {
@@ -41,4 +41,13 @@ export class PostQueryDto {
   @IsOptional()
   @IsNumberString()
   maxDistance?: string;
+
+  @ApiPropertyOptional({
+    enum: ['image', 'video'],
+    description: 'Filter posts by type: image or video (optional)',
+  })
+  @IsOptional()
+  @IsString()
+  postType?: string;
 }
+
