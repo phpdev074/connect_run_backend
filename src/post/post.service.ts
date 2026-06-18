@@ -102,7 +102,7 @@ export class PostService {
       posts.map(async (post) => {
         const [likesCount, commentsCount, isLiked] = await Promise.all([
           this.likeModel.countDocuments({ post_id: post._id }),
-          this.commentModel.countDocuments({ post_id: post._id }),
+          this.commentModel.countDocuments({ post_id: post._id, parentCommentId: null }),
           this.likeModel.exists({
             post_id: post._id,
             user_id: new Types.ObjectId(currentUserId),
@@ -154,7 +154,7 @@ export class PostService {
       posts.map(async (post) => {
         const [likesCount, commentsCount, isLiked] = await Promise.all([
           this.likeModel.countDocuments({ post_id: post._id }),
-          this.commentModel.countDocuments({ post_id: post._id }),
+          this.commentModel.countDocuments({ post_id: post._id, parentCommentId: null }),
           this.likeModel.exists({
             post_id: post._id,
             user_id: new Types.ObjectId(currentUserId),
@@ -193,7 +193,7 @@ export class PostService {
 
     const [likesCount, commentsCount, isLiked, comments] = await Promise.all([
       this.likeModel.countDocuments({ post_id: post._id }),
-      this.commentModel.countDocuments({ post_id: post._id }),
+      this.commentModel.countDocuments({ post_id: post._id, parentCommentId: null }),
       this.likeModel.exists({
         post_id: post._id,
         user_id: new Types.ObjectId(currentUserId),
