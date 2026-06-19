@@ -7,6 +7,7 @@ import { Like, LikeSchema } from './entities/like.entity';
 import { Comment, CommentSchema } from './entities/comment.entity';
 import { Report, ReportSchema } from './entities/report.entity';
 import { User, UserSchema } from '../users/entities/user.entity';
+import { BlockModule } from '../block/block.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { User, UserSchema } from '../users/entities/user.entity';
       { name: Report.name, schema: ReportSchema },
       { name: User.name, schema: UserSchema },
     ]),
+    BlockModule,
   ],
   controllers: [PostController],
   providers: [PostService],

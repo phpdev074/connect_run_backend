@@ -9,6 +9,7 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { PostQueryDto } from './dto/post-query.dto';
 import { User, UserDocument } from '../users/entities/user.entity';
+import { BlockService } from '../block/block.service';
 
 @Injectable()
 export class PostService {
@@ -18,6 +19,7 @@ export class PostService {
     @InjectModel(Comment.name) private commentModel: Model<CommentDocument>,
     @InjectModel(Report.name) private reportModel: Model<ReportDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly blockService: BlockService,
   ) {}
 
   async create(userId: string, createPostDto: CreatePostDto) {
@@ -47,8 +49,10 @@ export class PostService {
       }
     }
 
-    const filter: any = { is_active: true };
-    const countFilter: any = { is_active: true };
+    const blockedIds = await this.blockService.getBlockedUserIds(currentUserId);
+
+    const filter: any = { is_active: true, user_id: { $nin: blockedIds } };
+    const countFilter: any = { is_active: true, user_id: { $nin: blockedIds } };
 
     if (query.postType) {
       filter.postType = query.postType;
@@ -134,6 +138,11 @@ export class PostService {
     const limit = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    const isBlocked = await this.blockService.isBlocked(currentUserId, userId);
+    if (isBlocked) {
+      return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+    }
+
     const filter: any = { user_id: new Types.ObjectId(userId) };
     if (query.postType) {
       filter.postType = query.postType;
@@ -189,6 +198,12 @@ export class PostService {
 
     if (!post) {
       throw new NotFoundException('Post not found');
+    }
+
+    const postUserId = (post.user_id as any)._id.toString();
+    const isBlocked = await this.blockService.isBlocked(currentUserId, postUserId);
+    if (isBlocked) {
+      throw new ForbiddenException('You cannot view this post');
     }
 
     const [likesCount, commentsCount, isLiked, comments] = await Promise.all([
