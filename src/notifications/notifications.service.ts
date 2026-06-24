@@ -44,12 +44,16 @@ export class NotificationsService {
   async sendNotification(userId: string | Types.ObjectId, title: string, message: string, type?: string, data: any = {}) {
     try {
       const tokens = await this.userService.getFcmTokens([userId.toString()]);
+      this.logger.log(`Found ${tokens.length} FCM tokens for user ${userId} to send push notification.`);
       if (tokens.length > 0) {
         // Merge type into data for push payload
         const payload = { ...data, notificationType: type };
         for (const token of tokens) {
           await this.firebaseService.sendPushNotification(token, title, message, payload);
         }
+        this.logger.log(`Push notification sent. userId=${userId} type=${type} tokenCount=${tokens.length}`);
+      } else {
+        this.logger.log(`Push notification skipped: no FCM tokens. userId=${userId} type=${type}`);
       }
     } catch (error) {
       this.logger.error(`Failed to send push notification to user ${userId}`, error.stack);
@@ -153,7 +157,14 @@ export class NotificationsService {
       },
     );
 
+    this.logger.log(
+      `Post activity notification saved. notificationId=${notification?._id?.toString?.()} userId=${userId} postId=${postId} type=${type} body="${body}" shouldSendPush=${shouldSendPush}`,
+    );
+
     if (shouldSendPush) {
+      this.logger.log(
+        `Post activity push requested. userId=${userId} postId=${postId} type=${type} actorId=${actorId} actorCount=${actorCount}`,
+      );
       await this.sendNotification(userId, title, body, type, {
         postId: postId.toString(),
         actorId: actorId.toString(),
@@ -164,6 +175,10 @@ export class NotificationsService {
           Object.entries(extraData).map(([key, value]) => [key, value?.toString?.() ?? String(value)]),
         ),
       });
+    } else {
+      this.logger.log(
+        `Post activity push skipped. userId=${userId} postId=${postId} type=${type} actorId=${actorId} actorCount=${actorCount}`,
+      );
     }
 
     return notification;

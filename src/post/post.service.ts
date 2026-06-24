@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Post, PostDocument } from './entities/post.entity';
@@ -14,6 +14,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class PostService {
+  private readonly logger = new Logger(PostService.name);
+
   constructor(
     @InjectModel(Post.name) private postModel: Model<PostDocument>,
     @InjectModel(Like.name) private likeModel: Model<LikeDocument>,
@@ -580,12 +582,18 @@ export class PostService {
       .exec();
 
     if (!latestLike) {
+      this.logger.log(
+        `Post like notification skipped: no active non-owner likes. postId=${postId} ownerId=${postOwnerId} triggeringUserId=${triggeringUserId}`,
+      );
       await this.notificationsService.removePostActivityNotification(postOwnerId, postId, 'POST_LIKE');
       return;
     }
 
     const actorUserId = latestLike.user_id.toString();
     if (actorUserId === postOwnerId) {
+      this.logger.log(
+        `Post like notification skipped: latest actor is post owner. postId=${postId} ownerId=${postOwnerId} triggeringUserId=${triggeringUserId}`,
+      );
       return;
     }
 
@@ -593,6 +601,11 @@ export class PostService {
       post_id: new Types.ObjectId(postId),
       user_id: { $ne: ownerObjectId },
     });
+
+    const pushRequested = shouldSendPush && triggeringUserId !== postOwnerId && actorUserId === triggeringUserId;
+    this.logger.log(
+      `Post like notification syncing: postId=${postId} ownerId=${postOwnerId} actorId=${actorUserId} actorCount=${actorCount} pushRequested=${pushRequested}`,
+    );
 
     await this.notificationsService.upsertPostActivityNotification({
       userId: postOwnerId,
@@ -602,7 +615,7 @@ export class PostService {
       actorCount,
       type: 'POST_LIKE',
       activityAt: latestLike.created_at || new Date(),
-      shouldSendPush: shouldSendPush && triggeringUserId !== postOwnerId && actorUserId === triggeringUserId,
+      shouldSendPush: pushRequested,
     });
   }
 
@@ -625,12 +638,18 @@ export class PostService {
       .exec();
 
     if (!latestComment) {
+      this.logger.log(
+        `Post comment notification skipped: no active non-owner comments. postId=${postId} ownerId=${postOwnerId} triggeringUserId=${triggeringUserId}`,
+      );
       await this.notificationsService.removePostActivityNotification(postOwnerId, postId, 'POST_COMMENT');
       return;
     }
 
     const actorUserId = latestComment.user_id.toString();
     if (actorUserId === postOwnerId) {
+      this.logger.log(
+        `Post comment notification skipped: latest actor is post owner. postId=${postId} ownerId=${postOwnerId} triggeringUserId=${triggeringUserId}`,
+      );
       return;
     }
 
@@ -638,6 +657,11 @@ export class PostService {
       post_id: new Types.ObjectId(postId),
       user_id: { $ne: ownerObjectId },
     });
+
+    const pushRequested = shouldSendPush && triggeringUserId !== postOwnerId && actorUserId === triggeringUserId;
+    this.logger.log(
+      `Post comment notification syncing: postId=${postId} ownerId=${postOwnerId} actorId=${actorUserId} commenterCount=${commenterIds.length} pushRequested=${pushRequested}`,
+    );
 
     await this.notificationsService.upsertPostActivityNotification({
       userId: postOwnerId,
@@ -647,7 +671,7 @@ export class PostService {
       actorCount: commenterIds.length,
       type: 'POST_COMMENT',
       activityAt: latestComment.created_at || new Date(),
-      shouldSendPush: shouldSendPush && triggeringUserId !== postOwnerId && actorUserId === triggeringUserId,
+      shouldSendPush: pushRequested,
       extraData: {
         commentId: (commentId || latestComment._id).toString(),
       },
