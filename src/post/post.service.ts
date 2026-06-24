@@ -330,8 +330,9 @@ export class PostService {
     }
 
     let parentCommentIdObj: Types.ObjectId | null = null;
+    let parentComment: CommentDocument | null = null;
     if (parentCommentId) {
-      const parentComment = await this.commentModel.findById(parentCommentId);
+      parentComment = await this.commentModel.findById(parentCommentId);
       if (!parentComment) {
         throw new NotFoundException('Parent comment not found');
       }
@@ -349,6 +350,9 @@ export class PostService {
     });
 
     await this.syncPostCommentNotification(post, userId, true, comment._id as Types.ObjectId);
+    if (parentComment) {
+      await this.sendCommentReplyNotification(parentComment, comment, userId);
+    }
 
     return comment.populate('user_id', 'first_name last_name display_name image profile_galary');
   }
@@ -676,6 +680,45 @@ export class PostService {
         commentId: (commentId || latestComment._id).toString(),
       },
     });
+  }
+
+  private async sendCommentReplyNotification(
+    parentComment: CommentDocument,
+    reply: CommentDocument,
+    replierId: string,
+  ) {
+    const parentCommentOwnerId = parentComment.user_id.toString();
+    const postId = parentComment.post_id.toString();
+
+    if (parentCommentOwnerId === replierId) {
+      this.logger.log(
+        `Comment reply notification skipped: user replied to own comment. postId=${postId} parentCommentId=${parentComment._id} replierId=${replierId}`,
+      );
+      return;
+    }
+
+    const replierName = await this.getUserNameById(replierId);
+    const title = 'New reply';
+    const body = `${replierName} replied to your comment`;
+    const data = {
+      postId,
+      commentId: (reply._id as Types.ObjectId).toString(),
+      parentCommentId: (parentComment._id as Types.ObjectId).toString(),
+      actorId: replierId,
+      actorName: replierName,
+    };
+
+    this.logger.log(
+      `Comment reply notification sending: postId=${postId} parentCommentId=${parentComment._id} replyId=${reply._id} recipientId=${parentCommentOwnerId} actorId=${replierId}`,
+    );
+
+    await this.notificationsService.sendAndSave(
+      parentCommentOwnerId,
+      title,
+      body,
+      'POST_COMMENT_REPLY',
+      data,
+    );
   }
 
   private async getUserNameById(userId: string) {

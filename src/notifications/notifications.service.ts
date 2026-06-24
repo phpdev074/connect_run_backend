@@ -69,6 +69,9 @@ export class NotificationsService {
       type,
       data,
     });
+    this.logger.log(
+      `Notification saved. notificationId=${notification._id?.toString?.()} userId=${userId} type=${type} body="${body}"`,
+    );
 
     // 2. Send push notification if token exists
     try {
@@ -79,6 +82,9 @@ export class NotificationsService {
         for (const token of tokens) {
           await this.firebaseService.sendPushNotification(token, title, body, payload);
         }
+        this.logger.log(`Saved notification push sent. userId=${userId} type=${type} tokenCount=${tokens.length}`);
+      } else {
+        this.logger.log(`Saved notification push skipped: no FCM tokens. userId=${userId} type=${type}`);
       }
     } catch (error) {
       this.logger.error(`Failed to send push notification to user ${userId}`, error.stack);
