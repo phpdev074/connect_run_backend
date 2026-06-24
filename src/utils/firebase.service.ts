@@ -1,7 +1,6 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 import { ConfigService } from '@nestjs/config';
-import * as path from 'path';
 
 @Injectable()
 export class FirebaseService implements OnModuleInit {
@@ -10,9 +9,9 @@ export class FirebaseService implements OnModuleInit {
   constructor(private configService: ConfigService) {}
 
   onModuleInit() {
-    const projectId = this.configService.get<string>('FIREBASE_PROJECT_ID');
-    const clientEmail = this.configService.get<string>('FIREBASE_CLIENT_EMAIL');
-    const privateKey = this.configService.get<string>('FIREBASE_PRIVATE_KEY');
+    const projectId = this.cleanEnvValue(this.configService.get<string>('FIREBASE_PROJECT_ID'));
+    const clientEmail = this.cleanEnvValue(this.configService.get<string>('FIREBASE_CLIENT_EMAIL'));
+    const privateKey = this.cleanPrivateKey(this.configService.get<string>('FIREBASE_PRIVATE_KEY'));
 
     if (!projectId || !clientEmail || !privateKey) {
       this.logger.error('Firebase credentials are not fully defined in .env');
@@ -25,10 +24,10 @@ export class FirebaseService implements OnModuleInit {
           credential: admin.credential.cert({
             projectId,
             clientEmail,
-            privateKey: privateKey.replace(/\\n/g, '\n'),
+            privateKey,
           }),
         });
-        this.logger.log('Firebase Admin SDK initialized successfully');
+        this.logger.log(`Firebase Admin SDK initialized successfully. projectId=${projectId} clientEmail=${clientEmail}`);
       }
     } catch (error) {
       this.logger.error('Error initializing Firebase Admin SDK', error.stack);
@@ -55,7 +54,10 @@ export class FirebaseService implements OnModuleInit {
       this.logger.log(`Successfully sent message: ${response}`);
       return response;
     } catch (error) {
-      this.logger.error('Error sending push notification', error.stack);
+      this.logger.error(
+        `Error sending push notification. code=${error?.code || 'unknown'} message=${error?.message || 'unknown'}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -75,8 +77,19 @@ export class FirebaseService implements OnModuleInit {
       this.logger.log(`Successfully sent message to topic ${topic}: ${response}`);
       return response;
     } catch (error) {
-      this.logger.error(`Error sending push notification to topic ${topic}`, error.stack);
+      this.logger.error(
+        `Error sending push notification to topic ${topic}. code=${error?.code || 'unknown'} message=${error?.message || 'unknown'}`,
+        error.stack,
+      );
       throw error;
     }
+  }
+
+  private cleanEnvValue(value?: string) {
+    return value?.trim().replace(/^['"]|['"]$/g, '');
+  }
+
+  private cleanPrivateKey(value?: string) {
+    return this.cleanEnvValue(value)?.replace(/\\n/g, '\n');
   }
 }
