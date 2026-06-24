@@ -22,7 +22,7 @@ export class PostService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly blockService: BlockService,
     private readonly notificationsService: NotificationsService,
-  ) {}
+  ) { }
 
   async create(userId: string, createPostDto: CreatePostDto) {
     const post = new this.postModel({
@@ -69,7 +69,7 @@ export class PostService {
 
     if (runProximitySearch) {
       const maxDist = maxDistanceParam * 1000; // convert km to meters
-      
+
       filter.location = {
         $near: {
           $geometry: {
@@ -577,7 +577,6 @@ export class PostService {
         user_id: { $ne: ownerObjectId },
       })
       .sort({ created_at: -1 })
-      .populate('user_id', 'first_name last_name display_name full_name')
       .exec();
 
     if (!latestLike) {
@@ -585,8 +584,7 @@ export class PostService {
       return;
     }
 
-    const actor = latestLike.user_id as any;
-    const actorUserId = actor?._id?.toString?.() || actor.toString();
+    const actorUserId = latestLike.user_id.toString();
     if (actorUserId === postOwnerId) {
       return;
     }
@@ -600,7 +598,7 @@ export class PostService {
       userId: postOwnerId,
       postId,
       actorId: actorUserId,
-      actorName: this.getUserName(actor),
+      actorName: await this.getUserNameById(actorUserId),
       actorCount,
       type: 'POST_LIKE',
       activityAt: latestLike.created_at || new Date(),
@@ -624,7 +622,6 @@ export class PostService {
         user_id: { $ne: ownerObjectId },
       })
       .sort({ created_at: -1 })
-      .populate('user_id', 'first_name last_name display_name full_name')
       .exec();
 
     if (!latestComment) {
@@ -632,8 +629,7 @@ export class PostService {
       return;
     }
 
-    const actor = latestComment.user_id as any;
-    const actorUserId = actor?._id?.toString?.() || actor.toString();
+    const actorUserId = latestComment.user_id.toString();
     if (actorUserId === postOwnerId) {
       return;
     }
@@ -647,7 +643,7 @@ export class PostService {
       userId: postOwnerId,
       postId,
       actorId: actorUserId,
-      actorName: this.getUserName(actor),
+      actorName: await this.getUserNameById(actorUserId),
       actorCount: commenterIds.length,
       type: 'POST_COMMENT',
       activityAt: latestComment.created_at || new Date(),
@@ -656,6 +652,15 @@ export class PostService {
         commentId: (commentId || latestComment._id).toString(),
       },
     });
+  }
+
+  private async getUserNameById(userId: string) {
+    const user = await this.userModel
+      .findById(userId)
+      .select('first_name last_name display_name full_name')
+      .lean();
+
+    return this.getUserName(user);
   }
 
   private getUserName(user: any) {
