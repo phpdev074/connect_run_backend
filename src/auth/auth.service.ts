@@ -14,6 +14,7 @@ import { MailService } from 'src/Mail/mail.service';
 import { buildWelcomeMessage } from 'src/Mail/templates/welcome-email.template';
 import { ForgotPasswordDto } from 'src/users/dto/forgot-password.dto';
 import { buildForgotPasswordEmail } from 'src/Mail/templates/forgot-password.template';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 
 @Injectable()
@@ -22,6 +23,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly mailService: MailService,
+    private readonly notificationsService: NotificationsService,
   ) { }
 
 
@@ -46,6 +48,8 @@ export class AuthService {
       'Welcome to ConnectRun 🎉',
       buildWelcomeMessage(dto.first_name || dto.full_name || dto.name),
     ).catch(err => console.error('Welcome email failed:', err));
+
+    await this.sendWelcomeNotification(user);
 
     return this.signToken(user, isNewUser);
   }
@@ -100,6 +104,8 @@ export class AuthService {
 
     this.mailService.sendMail(dto.email, 'Welcome to ConnectRun 🎉 - Verify Email', emailTemplate)
       .catch(err => console.error('Verification email failed:', err));
+
+    await this.sendWelcomeNotification(user);
 
     const isNewUser = true;
     return this.signToken(user, isNewUser);
@@ -175,6 +181,23 @@ export class AuthService {
         full_name: user.full_name ?? null,
       },
     };
+  }
+
+  private async sendWelcomeNotification(user: any) {
+    try {
+      const userName = user?.display_name || user?.first_name || user?.full_name || 'there';
+      await this.notificationsService.sendAndSave(
+        user._id,
+        'Welcome to ConnectRun!',
+        `Hi ${userName}, welcome to ConnectRun.`,
+        'WELCOME',
+        {
+          userId: user._id.toString(),
+        },
+      );
+    } catch (error) {
+      console.error('Welcome notification failed:', error);
+    }
   }
 
   async login(dto: LoginDto) {
