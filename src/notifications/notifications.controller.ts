@@ -1,5 +1,5 @@
 import { Controller, Post, Body, Get, Req, UseGuards, Query, Patch, Param, Delete } from '@nestjs/common';
-import { NotificationsService } from './notifications.service';
+import { NotificationsPage, NotificationsService } from './notifications.service';
 import { ApiTags, ApiOperation, ApiBody, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { BulkDeleteNotificationsDto } from './dto/bulk-delete-notifications.dto';
@@ -19,7 +19,7 @@ export class NotificationsController {
     @Req() req,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
-  ) {
+  ): Promise<NotificationsPage> {
     return await this.notificationsService.getUserNotifications(req.user.id, page, limit);
   }
 

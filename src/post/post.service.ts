@@ -10,6 +10,7 @@ import { UpdatePostDto } from './dto/update-post.dto';
 import { PostQueryDto } from './dto/post-query.dto';
 import { User, UserDocument } from '../users/entities/user.entity';
 import { BlockService } from '../block/block.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class PostService {
@@ -20,6 +21,7 @@ export class PostService {
     @InjectModel(Report.name) private reportModel: Model<ReportDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly blockService: BlockService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(userId: string, createPostDto: CreatePostDto) {
@@ -256,6 +258,8 @@ export class PostService {
       this.postModel.findByIdAndDelete(id),
       this.likeModel.deleteMany({ post_id: postObjectId }),
       this.commentModel.deleteMany({ post_id: postObjectId }),
+      this.notificationsService.removePostActivityNotification(userId, id, 'POST_LIKE'),
+      this.notificationsService.removePostActivityNotification(userId, id, 'POST_COMMENT'),
     ]);
 
     return { deleted: true };
@@ -274,6 +278,9 @@ export class PostService {
     }
 
     await this.deleteCommentAndRepliesRecursively(comment._id as Types.ObjectId);
+    if (post) {
+      await this.syncPostCommentNotification(post, userId, false);
+    }
     return { deleted: true };
   }
 
@@ -301,12 +308,14 @@ export class PostService {
     let liked = false;
     if (like) {
       await this.likeModel.deleteOne({ _id: like._id });
+      await this.syncPostLikeNotification(post, userId, false);
     } else {
       await this.likeModel.create({
         post_id: new Types.ObjectId(id),
         user_id: new Types.ObjectId(userId),
       });
       liked = true;
+      await this.syncPostLikeNotification(post, userId, true);
     }
 
     return { liked };
@@ -336,6 +345,8 @@ export class PostService {
       text,
       parentCommentId: parentCommentIdObj,
     });
+
+    await this.syncPostCommentNotification(post, userId, true, comment._id as Types.ObjectId);
 
     return comment.populate('user_id', 'first_name last_name display_name image profile_galary');
   }
@@ -553,5 +564,105 @@ export class PostService {
         },
       },
     ]).exec();
+  }
+
+  private async syncPostLikeNotification(post: PostDocument, triggeringUserId: string, shouldSendPush: boolean) {
+    const postId = (post._id as Types.ObjectId).toString();
+    const postOwnerId = post.user_id.toString();
+    const ownerObjectId = new Types.ObjectId(postOwnerId);
+
+    const latestLike = await this.likeModel
+      .findOne({
+        post_id: new Types.ObjectId(postId),
+        user_id: { $ne: ownerObjectId },
+      })
+      .sort({ created_at: -1 })
+      .populate('user_id', 'first_name last_name display_name full_name')
+      .exec();
+
+    if (!latestLike) {
+      await this.notificationsService.removePostActivityNotification(postOwnerId, postId, 'POST_LIKE');
+      return;
+    }
+
+    const actor = latestLike.user_id as any;
+    const actorUserId = actor?._id?.toString?.() || actor.toString();
+    if (actorUserId === postOwnerId) {
+      return;
+    }
+
+    const actorCount = await this.likeModel.countDocuments({
+      post_id: new Types.ObjectId(postId),
+      user_id: { $ne: ownerObjectId },
+    });
+
+    await this.notificationsService.upsertPostActivityNotification({
+      userId: postOwnerId,
+      postId,
+      actorId: actorUserId,
+      actorName: this.getUserName(actor),
+      actorCount,
+      type: 'POST_LIKE',
+      activityAt: latestLike.created_at || new Date(),
+      shouldSendPush: shouldSendPush && triggeringUserId !== postOwnerId && actorUserId === triggeringUserId,
+    });
+  }
+
+  private async syncPostCommentNotification(
+    post: PostDocument,
+    triggeringUserId: string,
+    shouldSendPush: boolean,
+    commentId?: Types.ObjectId,
+  ) {
+    const postId = (post._id as Types.ObjectId).toString();
+    const postOwnerId = post.user_id.toString();
+    const ownerObjectId = new Types.ObjectId(postOwnerId);
+
+    const latestComment = await this.commentModel
+      .findOne({
+        post_id: new Types.ObjectId(postId),
+        user_id: { $ne: ownerObjectId },
+      })
+      .sort({ created_at: -1 })
+      .populate('user_id', 'first_name last_name display_name full_name')
+      .exec();
+
+    if (!latestComment) {
+      await this.notificationsService.removePostActivityNotification(postOwnerId, postId, 'POST_COMMENT');
+      return;
+    }
+
+    const actor = latestComment.user_id as any;
+    const actorUserId = actor?._id?.toString?.() || actor.toString();
+    if (actorUserId === postOwnerId) {
+      return;
+    }
+
+    const commenterIds = await this.commentModel.distinct('user_id', {
+      post_id: new Types.ObjectId(postId),
+      user_id: { $ne: ownerObjectId },
+    });
+
+    await this.notificationsService.upsertPostActivityNotification({
+      userId: postOwnerId,
+      postId,
+      actorId: actorUserId,
+      actorName: this.getUserName(actor),
+      actorCount: commenterIds.length,
+      type: 'POST_COMMENT',
+      activityAt: latestComment.created_at || new Date(),
+      shouldSendPush: shouldSendPush && triggeringUserId !== postOwnerId && actorUserId === triggeringUserId,
+      extraData: {
+        commentId: (commentId || latestComment._id).toString(),
+      },
+    });
+  }
+
+  private getUserName(user: any) {
+    if (!user || user instanceof Types.ObjectId) {
+      return 'Someone';
+    }
+
+    return user.display_name || user.full_name || [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Someone';
   }
 }

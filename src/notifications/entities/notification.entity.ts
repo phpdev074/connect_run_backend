@@ -20,6 +20,9 @@ export class Notification {
   @Prop({ type: Object })
   data: any;
 
+  @Prop({ type: Date, default: Date.now, index: true })
+  activityAt: Date;
+
   @Prop({ default: false })
   isRead: boolean;
 
@@ -28,3 +31,13 @@ export class Notification {
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
+NotificationSchema.index(
+  { userId: 1, type: 1, 'data.postId': 1, isDeleted: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      isDeleted: false,
+      'data.postId': { $exists: true },
+    },
+  },
+);

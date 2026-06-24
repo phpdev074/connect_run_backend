@@ -5,6 +5,32 @@ import { Notification, NotificationDocument } from './entities/notification.enti
 import { FirebaseService } from '../utils/firebase.service';
 import { UsersService } from '../users/users.service';
 
+export type PostActivityNotificationType = 'POST_LIKE' | 'POST_COMMENT';
+
+export interface NotificationListItem {
+  _id: Types.ObjectId;
+  userId: Types.ObjectId;
+  title: string;
+  body: string;
+  type: string;
+  data?: any;
+  activityAt?: Date;
+  isRead: boolean;
+  isDeleted: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface NotificationsPage {
+  data: NotificationListItem[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -57,20 +83,134 @@ export class NotificationsService {
     return notification;
   }
 
-  async getUserNotifications(userId: string, page: number = 1, limit: number = 20) {
+  async upsertPostActivityNotification(params: {
+    userId: string | Types.ObjectId;
+    postId: string | Types.ObjectId;
+    actorId: string | Types.ObjectId;
+    actorName: string;
+    actorCount: number;
+    type: PostActivityNotificationType;
+    activityAt: Date;
+    shouldSendPush?: boolean;
+    extraData?: Record<string, any>;
+  }) {
+    const {
+      userId,
+      postId,
+      actorId,
+      actorName,
+      actorCount,
+      type,
+      activityAt,
+      shouldSendPush = true,
+      extraData = {},
+    } = params;
+
+    const actionText = type === 'POST_LIKE' ? 'liked' : 'commented on';
+    const title = type === 'POST_LIKE' ? 'New like' : 'New comment';
+    const body =
+      actorCount > 1
+        ? `${actorName} and ${actorCount - 1} ${actorCount - 1 === 1 ? 'other' : 'others'} ${actionText} your post`
+        : `${actorName} ${actionText} your post`;
+
+    const data = {
+      postId: postId.toString(),
+      actorId: actorId.toString(),
+      actorName,
+      actorCount,
+      activityAt: activityAt.toISOString(),
+      ...extraData,
+    };
+
+    const notification = await this.notificationModel.findOneAndUpdate(
+      {
+        userId: new Types.ObjectId(userId),
+        type,
+        'data.postId': postId.toString(),
+        isDeleted: false,
+      },
+      {
+        $set: {
+          title,
+          body,
+          type,
+          data,
+          activityAt,
+          isRead: false,
+          updatedAt: activityAt,
+        },
+        $setOnInsert: {
+          userId: new Types.ObjectId(userId),
+          createdAt: activityAt,
+          isDeleted: false,
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true,
+        timestamps: false,
+      },
+    );
+
+    if (shouldSendPush) {
+      await this.sendNotification(userId, title, body, type, {
+        postId: postId.toString(),
+        actorId: actorId.toString(),
+        actorName,
+        actorCount: actorCount.toString(),
+        activityAt: activityAt.toISOString(),
+        ...Object.fromEntries(
+          Object.entries(extraData).map(([key, value]) => [key, value?.toString?.() ?? String(value)]),
+        ),
+      });
+    }
+
+    return notification;
+  }
+
+  async removePostActivityNotification(
+    userId: string | Types.ObjectId,
+    postId: string | Types.ObjectId,
+    type: PostActivityNotificationType,
+  ) {
+    return this.notificationModel.updateOne(
+      {
+        userId: new Types.ObjectId(userId),
+        type,
+        'data.postId': postId.toString(),
+        isDeleted: false,
+      },
+      {
+        $set: {
+          isDeleted: true,
+          updatedAt: new Date(),
+        },
+      },
+      { timestamps: false },
+    );
+  }
+
+  async getUserNotifications(userId: string, page: number = 1, limit: number = 20): Promise<NotificationsPage> {
     const skip = (page - 1) * limit;
     const query = { userId: new Types.ObjectId(userId), isDeleted: { $ne: true } };
     const [data, total] = await Promise.all([
       this.notificationModel
         .find(query)
-        .sort({ createdAt: -1 })
+        .sort({ activityAt: -1, updatedAt: -1, createdAt: -1 })
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .lean(),
       this.notificationModel.countDocuments(query),
     ]);
 
+    const notifications = data as NotificationListItem[];
+
     return {
-      data,
+      data: notifications.map((notification) => ({
+        ...notification,
+        createdAt: notification.activityAt || notification.createdAt,
+      })),
       meta: {
         total,
         page,
