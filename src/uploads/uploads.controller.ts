@@ -46,7 +46,7 @@ export class UploadsController {
         },
       }),
       fileFilter: (req, file, callback) => {
-        if (!file.originalname.match(/\.(jpg|jpeg|png|gif|mp4|mov|avi|mkv|webm)$/i)) {
+        if (!file.originalname.match(/\.(jpg|jpeg|png|gif|mp4|mov|avi|mkv|webm|webp|heic|heif)$/i)) {
           return callback(
             new BadRequestException('Only image and video files are allowed!'),
             false,
