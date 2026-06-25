@@ -7,6 +7,7 @@ import {
   HttpStatus,
   HttpCode,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -16,6 +17,8 @@ import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
 @ApiTags('Uploads')
 @Controller('uploads')
 export class UploadsController {
+  private readonly logger = new Logger(UploadsController.name);
+
   @Post('multiple')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Upload multiple files (Images and Videos)' })
@@ -46,12 +49,23 @@ export class UploadsController {
         },
       }),
       fileFilter: (req, file, callback) => {
-        if (!file.originalname.match(/\.(jpg|jpeg|png|gif|mp4|mov|avi|mkv|webm|webp|heic|heif)$/i)) {
-          return callback(
-            new BadRequestException('Only image and video files are allowed!'),
-            false,
-          );
-        }
+        const ext = extname(file.originalname);
+        Logger.log(
+          `Multiple upload incoming file: originalname="${file.originalname}" mimetype="${file.mimetype}" extension="${ext}"`,
+          UploadsController.name,
+        );
+        // Temporarily allowing all file formats while upload format issues are investigated.
+        // Re-enable this block to restrict uploads to images/videos only.
+        // if (!file.originalname.match(/\.(jpg|jpeg|png|gif|mp4|mov|avi|mkv|webm|webp|heic|heif)$/i)) {
+        //   Logger.warn(
+        //     `Multiple upload rejected file: originalname="${file.originalname}" mimetype="${file.mimetype}" extension="${ext}"`,
+        //     UploadsController.name,
+        //   );
+        //   return callback(
+        //     new BadRequestException('Only image and video files are allowed!'),
+        //     false,
+        //   );
+        // }
         callback(null, true);
       },
     }),
@@ -60,6 +74,13 @@ export class UploadsController {
     if (!files || files.length === 0) {
       throw new BadRequestException('No files uploaded');
     }
+
+    this.logger.log(`Multiple upload accepted ${files.length} file(s).`);
+    files.forEach((file) => {
+      this.logger.log(
+        `Multiple upload accepted file: originalname="${file.originalname}" filename="${file.filename}" mimetype="${file.mimetype}" size=${file.size} extension="${extname(file.originalname)}"`,
+      );
+    });
 
     const data = files.map((file) => ({
       originalname: file.originalname,
