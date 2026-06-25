@@ -380,7 +380,7 @@ export class PostService {
     const comments = await this.commentModel
       .find({ post_id: new Types.ObjectId(postId) })
       .populate('user_id', 'first_name last_name display_name image profile_galary')
-      .sort({ created_at: 1 })
+      .sort({ created_at: -1 })
       .exec();
 
     const commentMap = new Map<string, any>();
