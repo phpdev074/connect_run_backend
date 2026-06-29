@@ -46,7 +46,44 @@ export class PostService {
       tags,
       tagged_users: taggedUsers,
     });
-    return post.save();
+    // Original code commented out:
+    // return post.save();
+
+    const savedPost = await post.save();
+    if (taggedUsers.length > 0) {
+      this.sendTagNotifications(userId, savedPost, taggedUsers);
+    }
+    return savedPost;
+  }
+
+  private async sendTagNotifications(creatorId: string, post: any, taggedUserIds: Types.ObjectId[]) {
+    try {
+      if (!taggedUserIds || taggedUserIds.length === 0) {
+        return;
+      }
+      const creatorName = await this.getUserNameById(creatorId);
+      const title = 'New tag';
+      const body = `${creatorName} tagged you in a post`;
+      const data = {
+        postId: post._id.toString(),
+        actorId: creatorId,
+        actorName: creatorName,
+      };
+
+      await Promise.all(
+        taggedUserIds.map((taggedUserId) =>
+          this.notificationsService.sendAndSave(
+            taggedUserId,
+            title,
+            body,
+            'POST_USER_TAG',
+            data,
+          ).catch(err => this.logger.error(`Failed to send tag notification to ${taggedUserId}: ${err.message}`))
+        )
+      );
+    } catch (error) {
+      this.logger.error(`Error in sendTagNotifications: ${error.message}`);
+    }
   }
 
   async findAll(currentUserId: string, query: PostQueryDto) {
@@ -296,12 +333,27 @@ export class PostService {
     //   const title = updateData.title !== undefined ? updateData.title : post.title;
     //   updateData['tagged_users'] = await this.extractTaggedUsers(text, title);
     // }
+    let newTaggedUsers: Types.ObjectId[] = [];
     if (updateData.tagged_users) {
-      updateData.tagged_users = updateData.tagged_users.map((id) => new Types.ObjectId(id as any) as any);
+      const oldTaggedUserIds = (post.tagged_users || []).map((id) => id.toString());
+      const updatedTaggedUserIds = updateData.tagged_users;
+      updateData.tagged_users = updatedTaggedUserIds.map((id) => new Types.ObjectId(id as any) as any);
+
+      // Send notifications ONLY to newly tagged users to avoid spamming
+      newTaggedUsers = (updateData.tagged_users as any).filter(
+        (id: any) => !oldTaggedUserIds.includes(id.toString()),
+      );
     }
 
     Object.assign(post, updateData);
-    return post.save();
+    // Original code commented out:
+    // return post.save();
+
+    const savedPost = await post.save();
+    if (newTaggedUsers.length > 0) {
+      this.sendTagNotifications(userId, savedPost, newTaggedUsers);
+    }
+    return savedPost;
   }
 
   async remove(userId: string, id: string) {
