@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Story, StoryDocument } from './entities/story.entity';
 import { User, UserDocument } from '../users/entities/user.entity';
 import { BlockService } from '../block/block.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateStoryDto } from './dto/create-story.dto';
 import { UpdateStoryDto } from './dto/update-story.dto';
 import { StoryQueryDto } from './dto/story-query.dto';
@@ -14,12 +15,14 @@ export class StoryService {
     @InjectModel(Story.name) private storyModel: Model<StoryDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly blockService: BlockService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(userId: string, createStoryDto: CreateStoryDto) {
     const story = new this.storyModel({
       user_id: new Types.ObjectId(userId),
       ...createStoryDto,
+      user_time: createStoryDto.user_time ? new Date(createStoryDto.user_time) : undefined,
     });
     return story.save();
   }
@@ -258,17 +261,203 @@ export class StoryService {
     // Populate user details of the story owner
     await story.populate('user_id', 'first_name last_name display_name image profile_galary');
 
-    // Only allow the story owner to see the full list of viewers
+    // Only allow the story owner to see the full list of viewers, likes, comments, and reactions
     if (storyOwnerId === currentUserId) {
-      await story.populate('views', 'first_name last_name display_name image profile_galary');
+      await story.populate([
+        { path: 'views', select: 'first_name last_name display_name image profile_galary' },
+        { path: 'likes', select: 'first_name last_name display_name image profile_galary' },
+        { path: 'comments.user_id', select: 'first_name last_name display_name image profile_galary' },
+        { path: 'reactions.user_id', select: 'first_name last_name display_name image profile_galary' },
+      ]);
     }
 
-    const hasWatched = story.views.some((viewId) => viewId.toString() === currentUserId);
+    const getUserIdStr = (userField: any) => {
+      if (!userField) return '';
+      return userField._id ? userField._id.toString() : userField.toString();
+    };
+
+    const hasWatched = story.views.some((viewId) => getUserIdStr(viewId) === currentUserId);
+    const hasLiked = story.likes.some((likeId) => getUserIdStr(likeId) === currentUserId);
+    const myReaction = story.reactions.find((r) => getUserIdStr(r.user_id) === currentUserId)?.reaction || null;
 
     return {
       ...story.toObject(),
       hasWatched,
+      hasLiked,
+      myReaction,
     };
+  }
+
+  async toggleLikeStory(currentUserId: string, id: string) {
+    const story = await this.storyModel.findOne({ _id: new Types.ObjectId(id), is_deleted: { $ne: true } });
+    if (!story) {
+      throw new NotFoundException('Story not found');
+    }
+
+    const storyOwnerId = story.user_id.toString();
+    const isBlocked = await this.blockService.isBlocked(currentUserId, storyOwnerId);
+    if (isBlocked) {
+      throw new ForbiddenException('You cannot interact with this story');
+    }
+
+    const userIdObj = new Types.ObjectId(currentUserId);
+    const hasLiked = story.likes.some((likeId) => likeId.toString() === currentUserId);
+
+    if (hasLiked) {
+      // Unlike
+      await this.storyModel.findByIdAndUpdate(id, {
+        $pull: { likes: userIdObj },
+      });
+      return { liked: false };
+    } else {
+      // Like
+      await this.storyModel.findByIdAndUpdate(id, {
+        $addToSet: { likes: userIdObj },
+      });
+
+      // Send notification if not liking own story
+      if (storyOwnerId !== currentUserId) {
+        const likerName = await this.getUserNameById(currentUserId);
+        await this.notificationsService.sendAndSave(
+          storyOwnerId,
+          'ConnectRun',
+          `${likerName} liked your story`,
+          'STORY_LIKE',
+          { storyId: id, actorId: currentUserId },
+        ).catch(() => {});
+      }
+
+      return { liked: true };
+    }
+  }
+
+  async commentStory(currentUserId: string, id: string, text: string) {
+    const story = await this.storyModel.findOne({ _id: new Types.ObjectId(id), is_deleted: { $ne: true } });
+    if (!story) {
+      throw new NotFoundException('Story not found');
+    }
+
+    const storyOwnerId = story.user_id.toString();
+    const isBlocked = await this.blockService.isBlocked(currentUserId, storyOwnerId);
+    if (isBlocked) {
+      throw new ForbiddenException('You cannot interact with this story');
+    }
+
+    const comment = {
+      user_id: new Types.ObjectId(currentUserId),
+      text,
+      created_at: new Date(),
+    };
+
+    await this.storyModel.findByIdAndUpdate(id, {
+      $push: { comments: comment },
+    });
+
+    // Send notification if not commenting on own story
+    if (storyOwnerId !== currentUserId) {
+      const commenterName = await this.getUserNameById(currentUserId);
+      await this.notificationsService.sendAndSave(
+        storyOwnerId,
+        'ConnectRun',
+        `${commenterName} replied to your story: "${text}"`,
+        'STORY_COMMENT',
+        { storyId: id, actorId: currentUserId },
+      ).catch(() => {});
+    }
+
+    return { success: true, comment };
+  }
+
+  async reactStory(currentUserId: string, id: string, reaction: string) {
+    const story = await this.storyModel.findOne({ _id: new Types.ObjectId(id), is_deleted: { $ne: true } });
+    if (!story) {
+      throw new NotFoundException('Story not found');
+    }
+
+    const storyOwnerId = story.user_id.toString();
+    const isBlocked = await this.blockService.isBlocked(currentUserId, storyOwnerId);
+    if (isBlocked) {
+      throw new ForbiddenException('You cannot interact with this story');
+    }
+
+    const userIdObj = new Types.ObjectId(currentUserId);
+
+    // Pull any existing reaction by this user first (to enforce max 1 reaction)
+    await this.storyModel.findByIdAndUpdate(id, {
+      $pull: { reactions: { user_id: userIdObj } },
+    });
+
+    const newReaction = {
+      user_id: userIdObj,
+      reaction,
+      created_at: new Date(),
+    };
+
+    // Push the new reaction
+    await this.storyModel.findByIdAndUpdate(id, {
+      $push: { reactions: newReaction },
+    });
+
+    // Send notification if not reacting to own story
+    if (storyOwnerId !== currentUserId) {
+      const reactorName = await this.getUserNameById(currentUserId);
+      await this.notificationsService.sendAndSave(
+        storyOwnerId,
+        'ConnectRun',
+        `${reactorName} reacted to your story: ${reaction}`,
+        'STORY_REACTION',
+        { storyId: id, actorId: currentUserId, reaction },
+      ).catch(() => {});
+    }
+
+    return { success: true, reaction: newReaction };
+  }
+
+  async getStoryLikers(currentUserId: string, id: string) {
+    const story = await this.storyModel.findOne({ _id: new Types.ObjectId(id), is_deleted: { $ne: true } });
+    if (!story) {
+      throw new NotFoundException('Story not found');
+    }
+
+    const storyOwnerId = story.user_id.toString();
+    if (storyOwnerId !== currentUserId) {
+      throw new ForbiddenException('Only the story owner can view story likers');
+    }
+
+    await story.populate({
+      path: 'likes',
+      select: 'first_name last_name display_name image profile_galary',
+    });
+
+    return story.likes;
+  }
+
+  async getStoryCommentsAndReactions(currentUserId: string, id: string) {
+    const story = await this.storyModel.findOne({ _id: new Types.ObjectId(id), is_deleted: { $ne: true } });
+    if (!story) {
+      throw new NotFoundException('Story not found');
+    }
+
+    const storyOwnerId = story.user_id.toString();
+    if (storyOwnerId !== currentUserId) {
+      throw new ForbiddenException('Only the story owner can view story comments and reactions');
+    }
+
+    await story.populate([
+      { path: 'comments.user_id', select: 'first_name last_name display_name image profile_galary' },
+      { path: 'reactions.user_id', select: 'first_name last_name display_name image profile_galary' },
+    ]);
+
+    return {
+      comments: story.comments,
+      reactions: story.reactions,
+    };
+  }
+
+  private async getUserNameById(userId: string): Promise<string> {
+    const user = await this.userModel.findById(userId).select('first_name last_name display_name').exec();
+    if (!user) return 'Someone';
+    return user.display_name || `${user.first_name} ${user.last_name}`.trim() || 'Someone';
   }
 
   async watchStory(currentUserId: string, id: string) {

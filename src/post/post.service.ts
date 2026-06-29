@@ -62,7 +62,7 @@ export class PostService {
         return;
       }
       const creatorName = await this.getUserNameById(creatorId);
-      const title = 'New tag';
+      const title = 'ConnectRun';
       const body = `${creatorName} tagged you in a post`;
       const data = {
         postId: post._id.toString(),

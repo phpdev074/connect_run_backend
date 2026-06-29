@@ -27,7 +27,7 @@ export class CreatePostDto {
   @ApiPropertyOptional({
     description: 'Array of image URLs. Used if images are pre-uploaded.',
     type: [String],
-    example: ['https://api.velvetrabbit.io/uploads/1717589200-123456789.jpg'],
+    example: ['https://api.connectrun.io/uploads/1717589200-123456789.jpg'],
   })
   @IsOptional()
   @IsArray()
