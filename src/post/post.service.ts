@@ -30,10 +30,21 @@ export class PostService {
     const tags = createPostDto.tags
       ? createPostDto.tags.map((t) => t.trim().toLowerCase()).filter(Boolean)
       : [];
+    // Original code commented out:
+    // const post = new this.postModel({
+    //   user_id: new Types.ObjectId(userId),
+    //   ...createPostDto,
+    //   tags,
+    // });
+    // const taggedUsers = await this.extractTaggedUsers(createPostDto.text, createPostDto.title);
+    const taggedUsers = createPostDto.tagged_users
+      ? createPostDto.tagged_users.map((id) => new Types.ObjectId(id))
+      : [];
     const post = new this.postModel({
       user_id: new Types.ObjectId(userId),
       ...createPostDto,
       tags,
+      tagged_users: taggedUsers,
     });
     return post.save();
   }
@@ -110,6 +121,8 @@ export class PostService {
     const [posts, total] = await Promise.all([
       queryBuilder
         .populate('user_id', 'first_name last_name display_name image profile_galary')
+        // Added populate for tagged_users
+        .populate('tagged_users', 'first_name last_name display_name image profile_galary')
         .skip(skip)
         .limit(limit)
         .exec(),
@@ -169,6 +182,8 @@ export class PostService {
       this.postModel
         .find(filter)
         .populate('user_id', 'first_name last_name display_name image profile_galary')
+        // Added populate for tagged_users
+        .populate('tagged_users', 'first_name last_name display_name image profile_galary')
         .sort({ created_at: -1 })
         .skip(skip)
         .limit(limit)
@@ -211,6 +226,8 @@ export class PostService {
     const post = await this.postModel
       .findById(id)
       .populate('user_id', 'first_name last_name display_name image profile_galary')
+      // Added populate for tagged_users
+      .populate('tagged_users', 'first_name last_name display_name image profile_galary')
       .exec();
 
     if (!post) {
@@ -258,6 +275,16 @@ export class PostService {
     const updateData = { ...updatePostDto };
     if (updateData.tags) {
       updateData.tags = updateData.tags.map((t) => t.trim().toLowerCase()).filter(Boolean);
+    }
+
+    // Extract tagged users if text or title is updated (Commented out: now receiving user IDs directly)
+    // if (updateData.text !== undefined || updateData.title !== undefined) {
+    //   const text = updateData.text !== undefined ? updateData.text : post.text;
+    //   const title = updateData.title !== undefined ? updateData.title : post.title;
+    //   updateData['tagged_users'] = await this.extractTaggedUsers(text, title);
+    // }
+    if (updateData.tagged_users) {
+      updateData.tagged_users = updateData.tagged_users.map((id) => new Types.ObjectId(id as any) as any);
     }
 
     Object.assign(post, updateData);
@@ -755,4 +782,103 @@ export class PostService {
 
     return user.display_name || user.full_name || [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Someone';
   }
+
+  // Added method to find posts where the user is tagged
+  async findTaggedPosts(currentUserId: string, query: PostQueryDto) {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const blockedIds = await this.blockService.getBlockedUserIds(currentUserId);
+
+    const filter: any = {
+      is_active: true,
+      user_id: { $nin: blockedIds },
+      tagged_users: new Types.ObjectId(currentUserId),
+    };
+
+    const [posts, total] = await Promise.all([
+      this.postModel
+        .find(filter)
+        .populate('user_id', 'first_name last_name display_name image profile_galary')
+        .populate('tagged_users', 'first_name last_name display_name image profile_galary')
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.postModel.countDocuments(filter),
+    ]);
+
+    const data = await Promise.all(
+      posts.map(async (post) => {
+        const [likesCount, commentsCount, isLiked] = await Promise.all([
+          this.likeModel.countDocuments({ post_id: post._id }),
+          this.commentModel.countDocuments({ post_id: post._id, parentCommentId: null }),
+          this.likeModel.exists({
+            post_id: post._id,
+            user_id: new Types.ObjectId(currentUserId),
+          }),
+        ]);
+
+        return {
+          ...post.toObject(),
+          likesCount,
+          commentsCount,
+          isLiked: !!isLiked,
+        };
+      })
+    );
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  // Added helper method to extract tagged users from post text & title
+  // (Commented out: now receiving user IDs directly from payload)
+  // private async extractTaggedUsers(text?: string, title?: string): Promise<Types.ObjectId[]> {
+  //   const combinedText = `${text || ''} ${title || ''}`;
+  //   const regex = /@([a-zA-Z0-9_.\-]+)/g;
+  //   const matches: string[] = [];
+  //   let match;
+  //   while ((match = regex.exec(combinedText)) !== null) {
+  //     matches.push(match[1].toLowerCase());
+  //   }
+  //   if (matches.length === 0) return [];
+  // 
+  //   const users = await this.userModel.find({
+  //     $or: [
+  //       { display_name: { $exists: true } },
+  //       { full_name: { $exists: true } },
+  //       { first_name: { $exists: true } },
+  //       { last_name: { $exists: true } },
+  //     ],
+  //   }).select('display_name full_name first_name last_name').lean();
+  // 
+  //   const taggedUserIds: Types.ObjectId[] = [];
+  //   for (const user of users) {
+  //     const namesToCompare = [
+  //       user.display_name,
+  //       user.full_name,
+  //       user.first_name,
+  //       user.last_name,
+  //       user.first_name && user.last_name ? `${user.first_name}${user.last_name}` : null,
+  //       user.display_name?.replace(/\s+/g, ''),
+  //       user.full_name?.replace(/\s+/g, ''),
+  //     ].filter(Boolean).map(n => n?.toLowerCase());
+  // 
+  //     const isMatched = matches.some(matchTag => namesToCompare.includes(matchTag));
+  //     if (isMatched) {
+  //       taggedUserIds.push(user._id as Types.ObjectId);
+  //     }
+  //   }
+  // 
+  //   return taggedUserIds;
+  // }
 }

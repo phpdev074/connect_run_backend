@@ -54,6 +54,16 @@ export class CreatePostDto {
   @IsString({ each: true })
   tags?: string[];
 
+  @ApiPropertyOptional({
+    description: 'List of user IDs tagged in the post',
+    type: [String],
+    example: ['6a3bd940bfc8bd0844f330f0', '6a312c52049dcede594381e4'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tagged_users?: string[];
+
   @ApiPropertyOptional({ type: LocationDto })
   @IsOptional()
   @ValidateNested()

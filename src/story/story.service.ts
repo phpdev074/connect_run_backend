@@ -160,8 +160,27 @@ export class StoryService {
       this.storyModel.countDocuments(filter),
     ]);
 
+    // Original code commented out:
+    // return {
+    //   data: stories,
+    //   meta: {
+    //     total,
+    //     page,
+    //     limit,
+    //     totalPages: Math.ceil(total / limit),
+    //   },
+    // };
+
+    const data = stories.map((story) => {
+      const storyObj = story.toObject();
+      return {
+        ...storyObj,
+        viewCount: story.views ? story.views.length : 0,
+      };
+    });
+
     return {
-      data: stories,
+      data,
       meta: {
         total,
         page,
@@ -194,8 +213,27 @@ export class StoryService {
       this.storyModel.countDocuments(filter),
     ]);
 
+    // Original code commented out:
+    // return {
+    //   data: stories,
+    //   meta: {
+    //     total,
+    //     page,
+    //     limit,
+    //     totalPages: Math.ceil(total / limit),
+    //   },
+    // };
+
+    const data = stories.map((story) => {
+      const storyObj = story.toObject();
+      return {
+        ...storyObj,
+        viewCount: story.views ? story.views.length : 0,
+      };
+    });
+
     return {
-      data: stories,
+      data,
       meta: {
         total,
         page,

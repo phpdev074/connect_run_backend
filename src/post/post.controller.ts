@@ -25,7 +25,7 @@ import { CreateReportDto } from './dto/create-report.dto';
 @UseGuards(AuthGuard('jwt'))
 @Controller('post')
 export class PostController {
-  constructor(private readonly postService: PostService) {}
+  constructor(private readonly postService: PostService) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new post' })
@@ -60,6 +60,18 @@ export class PostController {
       statusCode: HttpStatus.OK,
       success: true,
       message: 'My posts fetched successfully',
+      data,
+    };
+  }
+
+  @Get('tagged')
+  @ApiOperation({ summary: 'Get active posts in which the logged-in user is tagged' })
+  async findTaggedPosts(@Req() req, @Query() query: PostQueryDto) {
+    const data = await this.postService.findTaggedPosts(req.user.id, query);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Tagged posts fetched successfully',
       data,
     };
   }

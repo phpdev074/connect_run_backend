@@ -27,6 +27,13 @@ export class Post {
     @Prop({ type: [String], default: [], index: true })
     tags?: string[];
 
+    @Prop({
+        type: [{ type: Types.ObjectId, ref: 'User' }],
+        default: [],
+        index: true,
+    })
+    tagged_users?: Types.ObjectId[];
+
     @Prop({ default: 'image', trim: true })
     postType?: string;
 
