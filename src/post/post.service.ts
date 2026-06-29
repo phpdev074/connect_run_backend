@@ -79,9 +79,16 @@ export class PostService {
     }
 
     if (query.tag) {
-      const normalizedTag = query.tag.trim().toLowerCase();
-      filter.tags = normalizedTag;
-      countFilter.tags = normalizedTag;
+      // Original code commented out:
+      // const normalizedTag = query.tag.trim().toLowerCase();
+      // filter.tags = normalizedTag;
+      // countFilter.tags = normalizedTag;
+      const decoded = decodeURIComponent(query.tag);
+      const tags = decoded.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean);
+      if (tags.length > 0) {
+        filter.tags = { $in: tags };
+        countFilter.tags = { $in: tags };
+      }
     }
 
     const maxDistanceParam = query.maxDistance !== undefined ? Number(query.maxDistance) : null;
@@ -175,7 +182,13 @@ export class PostService {
       filter.postType = query.postType;
     }
     if (query.tag) {
-      filter.tags = query.tag.trim().toLowerCase();
+      // Original code commented out:
+      // filter.tags = query.tag.trim().toLowerCase();
+      const decoded = decodeURIComponent(query.tag);
+      const tags = decoded.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean);
+      if (tags.length > 0) {
+        filter.tags = { $in: tags };
+      }
     }
 
     const [posts, total] = await Promise.all([
