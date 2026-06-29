@@ -23,6 +23,7 @@ import { GroupModule } from './group/group.module';
 import { PaceModule } from './pace/pace.module';
 import { PostModule } from './post/post.module';
 import { BlockModule } from './block/block.module';
+import { StoryModule } from './story/story.module';
 
 @Module({
   imports: [
@@ -61,7 +62,8 @@ import { BlockModule } from './block/block.module';
     GroupModule,
     PaceModule,
     PostModule,
-    BlockModule
+    BlockModule,
+    StoryModule
   ],
 })
 export class AppModule { }

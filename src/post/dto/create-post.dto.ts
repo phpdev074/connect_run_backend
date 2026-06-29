@@ -44,6 +44,16 @@ export class CreatePostDto {
   @IsBoolean()
   is_active?: boolean;
 
+  @ApiPropertyOptional({
+    description: 'List of tags associated with the post',
+    type: [String],
+    example: ['running', 'morning', 'cardio'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
+
   @ApiPropertyOptional({ type: LocationDto })
   @IsOptional()
   @ValidateNested()

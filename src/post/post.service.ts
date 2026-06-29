@@ -27,9 +27,13 @@ export class PostService {
   ) { }
 
   async create(userId: string, createPostDto: CreatePostDto) {
+    const tags = createPostDto.tags
+      ? createPostDto.tags.map((t) => t.trim().toLowerCase()).filter(Boolean)
+      : [];
     const post = new this.postModel({
       user_id: new Types.ObjectId(userId),
       ...createPostDto,
+      tags,
     });
     return post.save();
   }
@@ -61,6 +65,12 @@ export class PostService {
     if (query.postType) {
       filter.postType = query.postType;
       countFilter.postType = query.postType;
+    }
+
+    if (query.tag) {
+      const normalizedTag = query.tag.trim().toLowerCase();
+      filter.tags = normalizedTag;
+      countFilter.tags = normalizedTag;
     }
 
     const maxDistanceParam = query.maxDistance !== undefined ? Number(query.maxDistance) : null;
@@ -150,6 +160,9 @@ export class PostService {
     const filter: any = { user_id: new Types.ObjectId(userId) };
     if (query.postType) {
       filter.postType = query.postType;
+    }
+    if (query.tag) {
+      filter.tags = query.tag.trim().toLowerCase();
     }
 
     const [posts, total] = await Promise.all([
@@ -242,7 +255,12 @@ export class PostService {
       throw new ForbiddenException('You are not authorized to update this post');
     }
 
-    Object.assign(post, updatePostDto);
+    const updateData = { ...updatePostDto };
+    if (updateData.tags) {
+      updateData.tags = updateData.tags.map((t) => t.trim().toLowerCase()).filter(Boolean);
+    }
+
+    Object.assign(post, updateData);
     return post.save();
   }
 

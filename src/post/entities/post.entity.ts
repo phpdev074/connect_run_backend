@@ -24,6 +24,9 @@ export class Post {
     @Prop({ type: [String], default: [] })
     urls?: string[];
 
+    @Prop({ type: [String], default: [], index: true })
+    tags?: string[];
+
     @Prop({ default: 'image', trim: true })
     postType?: string;
 

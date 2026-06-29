@@ -49,5 +49,13 @@ export class PostQueryDto {
   @IsOptional()
   @IsString()
   postType?: string;
+
+  @ApiPropertyOptional({
+    example: 'running',
+    description: 'Filter posts by tag (optional)',
+  })
+  @IsOptional()
+  @IsString()
+  tag?: string;
 }
 
