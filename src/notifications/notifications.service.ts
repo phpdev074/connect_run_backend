@@ -403,25 +403,12 @@ export class NotificationsService {
         $match: {
           $or: [
             {
-              $expr: {
-                $not: {
-                  $in: ['$type', ['STORY_LIKE', 'STORY_COMMENT', 'STORY_REACTION']],
-                },
-              },
+              type: { $nin: ['STORY_LIKE', 'STORY_COMMENT', 'STORY_REACTION'] },
             },
             {
-              $and: [
-                {
-                  $in: ['$type', ['STORY_LIKE', 'STORY_COMMENT', 'STORY_REACTION']],
-                },
-                { $gt: [{ $size: '$storyDetails' }, 0] },
-                {
-                  $gte: [
-                    { $arrayElemAt: ['$storyDetails.created_at', 0] },
-                    twentyFourHoursAgo,
-                  ],
-                },
-              ],
+              type: { $in: ['STORY_LIKE', 'STORY_COMMENT', 'STORY_REACTION'] },
+              'storyDetails.0': { $exists: true },
+              'storyDetails.created_at': { $gte: twentyFourHoursAgo },
             },
           ],
         },
