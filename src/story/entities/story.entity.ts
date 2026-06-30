@@ -18,6 +18,9 @@ export class Story {
   @Prop({ required: true, trim: true })
   mediaUrl: string;
 
+  @Prop({ required: false, trim: true })
+  title?: string;
+
   @Prop({ default: 'image', trim: true })
   mediaType?: string; // 'image' | 'video'
 

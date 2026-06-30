@@ -11,6 +11,14 @@ export class CreateStoryDto {
   mediaUrl: string;
 
   @ApiPropertyOptional({
+    description: 'Optional title of the story',
+    example: 'My morning workout!',
+  })
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @ApiPropertyOptional({
     description: 'Type of the story media (e.g., image, video)',
     example: 'image',
     default: 'image',
