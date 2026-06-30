@@ -43,6 +43,9 @@ export class Post {
     @Prop({ default: true })
     is_active?: boolean;
 
+    @Prop({ trim: true })
+    locationName?: string;
+
     created_at: Date;
     updated_at: Date;
 

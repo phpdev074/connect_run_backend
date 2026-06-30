@@ -69,4 +69,9 @@ export class CreatePostDto {
   @ValidateNested()
   @Type(() => LocationDto)
   location?: LocationDto;
+
+  @ApiPropertyOptional({ description: 'Name of the location', example: 'Central Park' })
+  @IsOptional()
+  @IsString()
+  locationName?: string;
 }
