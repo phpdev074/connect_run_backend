@@ -41,3 +41,13 @@ NotificationSchema.index(
     },
   },
 );
+NotificationSchema.index(
+  { userId: 1, type: 1, 'data.storyId': 1, isDeleted: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      isDeleted: false,
+      'data.storyId': { $exists: true },
+    },
+  },
+);

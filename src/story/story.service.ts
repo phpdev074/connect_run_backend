@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Story, StoryDocument } from './entities/story.entity';
@@ -11,6 +11,8 @@ import { StoryQueryDto } from './dto/story-query.dto';
 
 @Injectable()
 export class StoryService {
+  private readonly logger = new Logger(StoryService.name);
+
   constructor(
     @InjectModel(Story.name) private storyModel: Model<StoryDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
@@ -305,28 +307,31 @@ export class StoryService {
 
     if (hasLiked) {
       // Unlike
-      await this.storyModel.findByIdAndUpdate(id, {
-        $pull: { likes: userIdObj },
-      });
+      const updatedStory = await this.storyModel.findByIdAndUpdate(
+        id,
+        { $pull: { likes: userIdObj } },
+        { new: true },
+      );
+
+      if (!updatedStory) {
+        throw new NotFoundException('Story not found');
+      }
+
+      await this.syncStoryLikeNotification(updatedStory, currentUserId, false);
       return { liked: false };
     } else {
       // Like
-      await this.storyModel.findByIdAndUpdate(id, {
-        $addToSet: { likes: userIdObj },
-      });
+      const updatedStory = await this.storyModel.findByIdAndUpdate(
+        id,
+        { $addToSet: { likes: userIdObj } },
+        { new: true },
+      );
 
-      // Send notification if not liking own story
-      if (storyOwnerId !== currentUserId) {
-        const likerName = await this.getUserNameById(currentUserId);
-        await this.notificationsService.sendAndSave(
-          storyOwnerId,
-          'ConnectRun',
-          `${likerName} liked your story`,
-          'STORY_LIKE',
-          { storyId: id, actorId: currentUserId },
-        ).catch(() => {});
+      if (!updatedStory) {
+        throw new NotFoundException('Story not found');
       }
 
+      await this.syncStoryLikeNotification(updatedStory, currentUserId, true);
       return { liked: true };
     }
   }
@@ -349,21 +354,17 @@ export class StoryService {
       created_at: new Date(),
     };
 
-    await this.storyModel.findByIdAndUpdate(id, {
-      $push: { comments: comment },
-    });
+    const updatedStory = await this.storyModel.findByIdAndUpdate(
+      id,
+      { $push: { comments: comment } },
+      { new: true },
+    );
 
-    // Send notification if not commenting on own story
-    if (storyOwnerId !== currentUserId) {
-      const commenterName = await this.getUserNameById(currentUserId);
-      await this.notificationsService.sendAndSave(
-        storyOwnerId,
-        'ConnectRun',
-        `${commenterName} replied to your story: "${text}"`,
-        'STORY_COMMENT',
-        { storyId: id, actorId: currentUserId },
-      ).catch(() => {});
+    if (!updatedStory) {
+      throw new NotFoundException('Story not found');
     }
+
+    await this.syncStoryCommentNotification(updatedStory, currentUserId, true);
 
     return { success: true, comment };
   }
@@ -394,21 +395,17 @@ export class StoryService {
     };
 
     // Push the new reaction
-    await this.storyModel.findByIdAndUpdate(id, {
-      $push: { reactions: newReaction },
-    });
+    const updatedStory = await this.storyModel.findByIdAndUpdate(
+      id,
+      { $push: { reactions: newReaction } },
+      { new: true },
+    );
 
-    // Send notification if not reacting to own story
-    if (storyOwnerId !== currentUserId) {
-      const reactorName = await this.getUserNameById(currentUserId);
-      await this.notificationsService.sendAndSave(
-        storyOwnerId,
-        'ConnectRun',
-        `${reactorName} reacted to your story: ${reaction}`,
-        'STORY_REACTION',
-        { storyId: id, actorId: currentUserId, reaction },
-      ).catch(() => {});
+    if (!updatedStory) {
+      throw new NotFoundException('Story not found');
     }
+
+    await this.syncStoryReactionNotification(updatedStory, currentUserId, true);
 
     return { success: true, reaction: newReaction };
   }
@@ -509,6 +506,117 @@ export class StoryService {
     // Soft delete the story
     story.is_deleted = true;
     await story.save();
+
+    // Clean up notifications related to this story
+    await Promise.all([
+      this.notificationsService.removeStoryActivityNotification(userId, id, 'STORY_LIKE'),
+      this.notificationsService.removeStoryActivityNotification(userId, id, 'STORY_COMMENT'),
+      this.notificationsService.removeStoryActivityNotification(userId, id, 'STORY_REACTION'),
+    ]).catch((err) => {
+      this.logger.error(`Failed to clean up notifications for story ${id}: ${err.message}`);
+    });
+
     return { deleted: true };
+  }
+
+  private async syncStoryLikeNotification(story: StoryDocument, triggeringUserId: string, shouldSendPush: boolean) {
+    const storyId = story._id.toString();
+    const storyOwnerId = story.user_id.toString();
+
+    // Filter likes to exclude the story owner
+    const nonOwnerLikes = story.likes.filter((likeId) => likeId.toString() !== storyOwnerId);
+
+    if (nonOwnerLikes.length === 0) {
+      this.logger.log(
+        `Story like notification skipped: no active non-owner likes. storyId=${storyId} ownerId=${storyOwnerId}`,
+      );
+      await this.notificationsService.removeStoryActivityNotification(storyOwnerId, storyId, 'STORY_LIKE');
+      return;
+    }
+
+    const latestLikerId = nonOwnerLikes[nonOwnerLikes.length - 1].toString();
+    const actorCount = nonOwnerLikes.length;
+
+    const pushRequested = shouldSendPush && triggeringUserId !== storyOwnerId && latestLikerId === triggeringUserId;
+
+    await this.notificationsService.upsertStoryActivityNotification({
+      userId: storyOwnerId,
+      storyId,
+      actorId: latestLikerId,
+      actorName: await this.getUserNameById(latestLikerId),
+      actorCount,
+      type: 'STORY_LIKE',
+      activityAt: new Date(),
+      shouldSendPush: pushRequested,
+    });
+  }
+
+  private async syncStoryCommentNotification(story: StoryDocument, triggeringUserId: string, shouldSendPush: boolean) {
+    const storyId = story._id.toString();
+    const storyOwnerId = story.user_id.toString();
+
+    // Filter comments to exclude the story owner
+    const nonOwnerComments = story.comments.filter((c) => c.user_id.toString() !== storyOwnerId);
+
+    if (nonOwnerComments.length === 0) {
+      this.logger.log(
+        `Story comment notification skipped: no active non-owner comments. storyId=${storyId} ownerId=${storyOwnerId}`,
+      );
+      await this.notificationsService.removeStoryActivityNotification(storyOwnerId, storyId, 'STORY_COMMENT');
+      return;
+    }
+
+    const latestComment = nonOwnerComments[nonOwnerComments.length - 1];
+    const latestCommenterId = latestComment.user_id.toString();
+
+    // Count of unique commenters
+    const uniqueCommenters = new Set(nonOwnerComments.map((c) => c.user_id.toString()));
+    const actorCount = uniqueCommenters.size;
+
+    const pushRequested = shouldSendPush && triggeringUserId !== storyOwnerId && latestCommenterId === triggeringUserId;
+
+    await this.notificationsService.upsertStoryActivityNotification({
+      userId: storyOwnerId,
+      storyId,
+      actorId: latestCommenterId,
+      actorName: await this.getUserNameById(latestCommenterId),
+      actorCount,
+      type: 'STORY_COMMENT',
+      activityAt: latestComment.created_at || new Date(),
+      shouldSendPush: pushRequested,
+    });
+  }
+
+  private async syncStoryReactionNotification(story: StoryDocument, triggeringUserId: string, shouldSendPush: boolean) {
+    const storyId = story._id.toString();
+    const storyOwnerId = story.user_id.toString();
+
+    // Filter reactions to exclude the story owner
+    const nonOwnerReactions = story.reactions.filter((r) => r.user_id.toString() !== storyOwnerId);
+
+    if (nonOwnerReactions.length === 0) {
+      this.logger.log(
+        `Story reaction notification skipped: no active non-owner reactions. storyId=${storyId} ownerId=${storyOwnerId}`,
+      );
+      await this.notificationsService.removeStoryActivityNotification(storyOwnerId, storyId, 'STORY_REACTION');
+      return;
+    }
+
+    const latestReaction = nonOwnerReactions[nonOwnerReactions.length - 1];
+    const latestReactorId = latestReaction.user_id.toString();
+    const actorCount = nonOwnerReactions.length;
+
+    const pushRequested = shouldSendPush && triggeringUserId !== storyOwnerId && latestReactorId === triggeringUserId;
+
+    await this.notificationsService.upsertStoryActivityNotification({
+      userId: storyOwnerId,
+      storyId,
+      actorId: latestReactorId,
+      actorName: await this.getUserNameById(latestReactorId),
+      actorCount,
+      type: 'STORY_REACTION',
+      activityAt: latestReaction.created_at || new Date(),
+      shouldSendPush: pushRequested,
+    });
   }
 }
