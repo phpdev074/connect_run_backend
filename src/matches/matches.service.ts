@@ -405,4 +405,20 @@ export class MatchesService {
     return invite;
   }
 
+  async getReceivedInvites(userId: string, filter: 'all' | 'active' | 'new') {
+    const userObjectId = new Types.ObjectId(userId);
+    const query: any = { receiverId: userObjectId };
+
+    if (filter === 'active') {
+      query.status = 'accepted';
+    } else if (filter === 'new') {
+      query.status = 'pending';
+    }
+
+    return this.inviteModel
+      .find(query)
+      .populate('senderId', 'first_name last_name display_name age image running_level')
+      .populate('matchId')
+      .sort({ createdAt: -1 });
+  }
 }

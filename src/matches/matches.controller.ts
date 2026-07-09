@@ -106,6 +106,22 @@ export class MatchesController {
     };
   }
 
+  @Get('received-invites')
+  @ApiOperation({ summary: 'Get list of run invites sent to the current user' })
+  @ApiQuery({ name: 'filter', required: false, enum: ['all', 'active', 'new'], description: 'all = all invites, active = accepted, new = pending' })
+  async getReceivedInvites(
+    @Req() req,
+    @Query('filter') filter: 'all' | 'active' | 'new' = 'all',
+  ) {
+    const data = await this.matchesService.getReceivedInvites(req.user.id, filter);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Received invites fetched successfully',
+      data,
+    };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get details of a specific match' })
   async getMatchDetails(@Param('id') id: string) {
