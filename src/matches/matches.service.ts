@@ -405,7 +405,12 @@ export class MatchesService {
     return invite;
   }
 
-  async getReceivedInvites(userId: string, filter: 'all' | 'active' | 'new') {
+  async getReceivedInvites(
+    userId: string,
+    filter: 'all' | 'active' | 'new',
+    page: number = 1,
+    limit: number = 10,
+  ) {
     const userObjectId = new Types.ObjectId(userId);
     const query: any = { receiverId: userObjectId };
 
@@ -415,10 +420,27 @@ export class MatchesService {
       query.status = 'pending';
     }
 
-    return this.inviteModel
-      .find(query)
-      .populate('senderId', 'first_name last_name display_name age image running_level')
-      .populate('matchId')
-      .sort({ createdAt: -1 });
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.inviteModel
+        .find(query)
+        .populate('senderId', 'first_name last_name display_name age image running_level')
+        .populate('matchId')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      this.inviteModel.countDocuments(query),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }

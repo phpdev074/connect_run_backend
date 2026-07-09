@@ -109,16 +109,25 @@ export class MatchesController {
   @Get('received-invites')
   @ApiOperation({ summary: 'Get list of run invites sent to the current user' })
   @ApiQuery({ name: 'filter', required: false, enum: ['all', 'active', 'new'], description: 'all = all invites, active = accepted, new = pending' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   async getReceivedInvites(
     @Req() req,
     @Query('filter') filter: 'all' | 'active' | 'new' = 'all',
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
   ) {
-    const data = await this.matchesService.getReceivedInvites(req.user.id, filter);
+    const data = await this.matchesService.getReceivedInvites(
+      req.user.id,
+      filter,
+      Number(page),
+      Number(limit),
+    );
     return {
       statusCode: HttpStatus.OK,
       success: true,
       message: 'Received invites fetched successfully',
-      data,
+      ...data,
     };
   }
 
