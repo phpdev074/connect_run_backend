@@ -36,9 +36,9 @@ export class RewardsService {
 
   async redeemPoints(userId: string, amount: number, description: string) {
     const user = await this.userModel.findById(userId);
-    if (!user || user.points < amount) {
-      throw new BadRequestException('Insufficient points');
-    }
+    // if (!user || user.points < amount) {
+    //   throw new BadRequestException('Insufficient points');
+    // }
 
     const transaction = await this.transactionModel.create({
       userId: new Types.ObjectId(userId),
