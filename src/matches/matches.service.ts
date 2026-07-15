@@ -389,11 +389,10 @@ export class MatchesService {
     return this.matchModel.findById(matchId).populate('users');
   }
 
-  async getSuggestedTimes(matchId: string, currentUserId: string) {
-    const match = await this.matchModel.findById(matchId).populate('users');
-    if (!match) throw new NotFoundException('Match not found');
+  async getSuggestedTimes(partnerUserId: string, currentUserId: string) {
+    const partner = await this.userService.findById(partnerUserId);
+    if (!partner) throw new NotFoundException('Partner user not found');
 
-    const partner = match.users.find(u => u._id.toString() !== currentUserId) as any;
     const partnerName = partner?.display_name || partner?.first_name || 'your partner';
 
     return {
@@ -429,11 +428,10 @@ export class MatchesService {
     };
   }
 
-  async getSuggestedRoutes(matchId: string, currentUserId: string) {
-    const match = await this.matchModel.findById(matchId).populate('users');
-    if (!match) throw new NotFoundException('Match not found');
+  async getSuggestedRoutes(partnerUserId: string, currentUserId: string) {
+    const partner = await this.userService.findById(partnerUserId);
+    if (!partner) throw new NotFoundException('Partner user not found');
 
-    const partner = match.users.find(u => u._id.toString() !== currentUserId) as any;
     const partnerName = partner?.display_name || partner?.first_name || 'your partner';
 
     return {

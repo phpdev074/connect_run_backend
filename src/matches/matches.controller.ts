@@ -145,8 +145,8 @@ export class MatchesController {
   }
 
   @Get(':id/suggested-times')
-  @ApiOperation({ summary: 'Get suggested times for a match based on partner activity patterns' })
-  @ApiParam({ name: 'id', description: 'The Match ID' })
+  @ApiOperation({ summary: 'Get suggested times based on partner activity patterns' })
+  @ApiParam({ name: 'id', description: 'The Partner User ID' })
   async getSuggestedTimes(@Param('id') id: string, @Req() req) {
     const data = await this.matchesService.getSuggestedTimes(id, req.user.id);
     return {
@@ -158,8 +158,8 @@ export class MatchesController {
   }
 
   @Get(':id/suggested-routes')
-  @ApiOperation({ summary: 'Get suggested routes and popular meeting locations for a match' })
-  @ApiParam({ name: 'id', description: 'The Match ID' })
+  @ApiOperation({ summary: 'Get suggested routes and popular meeting locations based on partner User ID' })
+  @ApiParam({ name: 'id', description: 'The Partner User ID' })
   async getSuggestedRoutes(@Param('id') id: string, @Req() req) {
     const data = await this.matchesService.getSuggestedRoutes(id, req.user.id);
     return {
