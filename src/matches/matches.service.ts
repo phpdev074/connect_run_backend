@@ -345,6 +345,21 @@ export class MatchesService {
       actualMatchId = match._id.toString();
     }
 
+    // Check if sender already has an accepted invite at this date and time
+    const conflictingInvite = await this.inviteModel.findOne({
+      status: 'accepted',
+      date: body.date,
+      time: body.time,
+      $or: [
+        { senderId: new Types.ObjectId(senderId) },
+        { receiverId: new Types.ObjectId(senderId) }
+      ]
+    });
+
+    if (conflictingInvite) {
+      throw new BadRequestException('You already have another accepted run scheduled for this date and time.');
+    }
+
     // Point requirements from UI
     const pointsRequired = body.type === 'Virtual_Run' ? 10 : 50;
 
@@ -547,6 +562,23 @@ export class MatchesService {
     }
 
     if (status === 'accepted') {
+      const targetDate = invite.status === 'counter_proposed' ? invite.counterProposedDate : invite.date;
+      const targetTime = invite.status === 'counter_proposed' ? invite.counterProposedTime : invite.time;
+
+      const conflictingInvite = await this.inviteModel.findOne({
+        status: 'accepted',
+        date: targetDate,
+        time: targetTime,
+        $or: [
+          { senderId: new Types.ObjectId(userId) },
+          { receiverId: new Types.ObjectId(userId) }
+        ]
+      });
+
+      if (conflictingInvite) {
+        throw new BadRequestException('You already have another accepted run scheduled for this date and time.');
+      }
+
       if (invite.status === 'counter_proposed') {
         invite.date = invite.counterProposedDate ?? invite.date;
         invite.time = invite.counterProposedTime ?? invite.time;
@@ -586,6 +618,21 @@ export class MatchesService {
 
     if (invite.receiverId.toString() !== userId) {
       throw new BadRequestException('You are not authorized to counter-propose this invite');
+    }
+
+    // Check if proposer already has an accepted run booked
+    const conflictingInvite = await this.inviteModel.findOne({
+      status: 'accepted',
+      date: body.date,
+      time: body.time,
+      $or: [
+        { senderId: new Types.ObjectId(userId) },
+        { receiverId: new Types.ObjectId(userId) }
+      ]
+    });
+
+    if (conflictingInvite) {
+      throw new BadRequestException('You already have another accepted run scheduled for this date and time.');
     }
 
     invite.counterProposedDate = body.date;
