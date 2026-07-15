@@ -318,6 +318,9 @@ export class MatchesService {
   }
 
   async sendDetailedInvite(matchId: string, senderId: string, body: CreateRunInviteDto) {
+    if (!Types.ObjectId.isValid(matchId)) {
+      throw new BadRequestException('Invalid match or receiver user ID format');
+    }
     let match = await this.matchModel.findById(matchId);
     let receiverId: any;
     let actualMatchId = matchId;
@@ -405,6 +408,9 @@ export class MatchesService {
   }
 
   async getSuggestedTimes(partnerUserId: string, currentUserId: string) {
+    if (!Types.ObjectId.isValid(partnerUserId)) {
+      throw new BadRequestException('Invalid partner user ID format');
+    }
     const partner = await this.userService.findById(partnerUserId);
     if (!partner) throw new NotFoundException('Partner user not found');
 
@@ -444,6 +450,9 @@ export class MatchesService {
   }
 
   async getSuggestedRoutes(partnerUserId: string, currentUserId: string) {
+    if (!Types.ObjectId.isValid(partnerUserId)) {
+      throw new BadRequestException('Invalid partner user ID format');
+    }
     const partner = await this.userService.findById(partnerUserId);
     if (!partner) throw new NotFoundException('Partner user not found');
 
@@ -551,6 +560,9 @@ export class MatchesService {
   }
 
   async respondToInvite(inviteId: string, userId: string, status: 'accepted' | 'declined') {
+    if (!Types.ObjectId.isValid(inviteId)) {
+      throw new BadRequestException('Invalid invite ID format');
+    }
     const invite = await this.inviteModel.findById(inviteId);
     if (!invite) throw new NotFoundException('Invite not found');
 
@@ -613,6 +625,9 @@ export class MatchesService {
   }
 
   async counterPropose(inviteId: string, userId: string, body: CounterProposalDto) {
+    if (!Types.ObjectId.isValid(inviteId)) {
+      throw new BadRequestException('Invalid invite ID format');
+    }
     const invite = await this.inviteModel.findById(inviteId);
     if (!invite) throw new NotFoundException('Invite not found');
 
