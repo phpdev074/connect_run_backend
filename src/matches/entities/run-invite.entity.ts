@@ -24,9 +24,21 @@ export class RunInvite {
   time: string; // e.g. "8:00 AM"
 
   @Prop()
+  route?: string; // e.g. "Riverside Loop"
+
+  @Prop()
+  location?: string; // e.g. "Central Park South Entrance"
+
+  @Prop()
+  counterProposedDate?: string;
+
+  @Prop()
+  counterProposedTime?: string;
+
+  @Prop()
   message?: string;
 
-  @Prop({ default: 'pending', enum: ['pending', 'accepted', 'declined'] })
+  @Prop({ default: 'pending', enum: ['pending', 'accepted', 'declined', 'counter_proposed'] })
   status: string;
 
   @Prop({ required: true })

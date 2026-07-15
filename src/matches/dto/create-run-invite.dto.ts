@@ -17,6 +17,16 @@ export class CreateRunInviteDto {
   @IsString()
   time: string;
 
+  @ApiProperty({ example: 'Riverside Loop', required: false })
+  @IsOptional()
+  @IsString()
+  route?: string;
+
+  @ApiProperty({ example: 'Central Park South Entrance', required: false })
+  @IsOptional()
+  @IsString()
+  location?: string;
+
   @ApiProperty({ example: 'Ready for our first run together?', required: false })
   @IsOptional()
   @IsString()

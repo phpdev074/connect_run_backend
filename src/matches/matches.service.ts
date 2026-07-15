@@ -5,6 +5,7 @@ import { Match, MatchDocument } from './entities/match.entity';
 import { User, UserDocument } from '../users/entities/user.entity';
 import { RunInvite, RunInviteDocument } from './entities/run-invite.entity';
 import { CreateRunInviteDto } from './dto/create-run-invite.dto';
+import { CounterProposalDto } from './dto/counter-proposal.dto';
 import { RewardsService } from '../rewards/rewards.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Mission, MissionDocument } from 'src/missions/entities/mission.entity';
@@ -301,14 +302,11 @@ export class MatchesService {
     return data.map((match) => {
       const matchObj = match.toObject();
       if (matchObj.runInviteId && typeof matchObj.runInviteId === 'object') {
+        const isSender = matchObj.runInviteId.senderId && matchObj.runInviteId.senderId.toString() === userId;
         if (matchObj.runInviteId.status === 'pending') {
-          if (matchObj.runInviteId.senderId && matchObj.runInviteId.senderId.toString() === userId) {
-            matchObj.inviteStatus = 'pending';
-            matchObj.runInviteId.status = 'pending';
-          } else {
-            matchObj.inviteStatus = 'invited';
-            matchObj.runInviteId.status = 'invited';
-          }
+          matchObj.inviteStatus = isSender ? 'pending' : 'invited';
+        } else if (matchObj.runInviteId.status === 'counter_proposed') {
+          matchObj.inviteStatus = isSender ? 'invited' : 'pending';
         } else {
           matchObj.inviteStatus = matchObj.runInviteId.status;
         }
@@ -320,17 +318,38 @@ export class MatchesService {
   }
 
   async sendDetailedInvite(matchId: string, senderId: string, body: CreateRunInviteDto) {
-    const match = await this.matchModel.findById(matchId);
-    if (!match) throw new NotFoundException('Match not found');
+    let match = await this.matchModel.findById(matchId);
+    let receiverId: any;
+    let actualMatchId = matchId;
 
-    const receiverId = match.users.find(u => u.toString() !== senderId);
-    if (!receiverId) throw new BadRequestException('Receiver not found in match');
+    if (match) {
+      receiverId = match.users.find(u => u.toString() !== senderId);
+      if (!receiverId) throw new BadRequestException('Receiver not found in match');
+    } else {
+      // Treat matchId as receiverId
+      receiverId = new Types.ObjectId(matchId);
+      const receiverExists = await this.userService.findById(receiverId.toString());
+      if (!receiverExists) throw new NotFoundException('Receiver user not found');
+
+      // Check if a match document already exists between these two users
+      match = await this.matchModel.findOne({
+        users: { $all: [new Types.ObjectId(senderId), receiverId] }
+      });
+
+      if (!match) {
+        match = await this.matchModel.create({
+          users: [new Types.ObjectId(senderId), receiverId],
+          status: 'matched'
+        });
+      }
+      actualMatchId = match._id.toString();
+    }
 
     // Point requirements from UI
     const pointsRequired = body.type === 'Virtual_Run' ? 10 : 50;
 
     const invite = await this.inviteModel.create({
-      matchId: new Types.ObjectId(matchId),
+      matchId: new Types.ObjectId(actualMatchId),
       senderId: new Types.ObjectId(senderId),
       receiverId: receiverId,
       pointsRequired,
@@ -338,7 +357,7 @@ export class MatchesService {
     });
 
     // Update match with invite ID and status
-    await this.matchModel.findByIdAndUpdate(matchId, {
+    await this.matchModel.findByIdAndUpdate(actualMatchId, {
       $set: {
         runInviteId: invite._id,
         virtualRunInviteSent: body.type === 'Virtual_Run' ? true : match.virtualRunInviteSent
@@ -370,12 +389,124 @@ export class MatchesService {
     return this.matchModel.findById(matchId).populate('users');
   }
 
+  async getSuggestedTimes(matchId: string, currentUserId: string) {
+    const match = await this.matchModel.findById(matchId).populate('users');
+    if (!match) throw new NotFoundException('Match not found');
+
+    const partner = match.users.find(u => u._id.toString() !== currentUserId) as any;
+    const partnerName = partner?.display_name || partner?.first_name || 'your partner';
+
+    return {
+      headerText: `Choose a time that works for you. ${partnerName} typically runs in the mornings based on their activity.`,
+      aiRecommendation: `Based on ${partnerName}'s activity patterns, Tomorrow 7:00 AM has the highest chance of acceptance.`,
+      suggestions: [
+        {
+          time: 'Tomorrow 6:00 AM',
+          label: 'Sunrise run',
+          isAiPick: false,
+        },
+        {
+          time: 'Tomorrow 7:00 AM',
+          label: 'Morning fresh',
+          isAiPick: true,
+        },
+        {
+          time: 'Tomorrow 12:00 PM',
+          label: 'Lunch break run',
+          isAiPick: false,
+        },
+        {
+          time: 'Tomorrow 5:30 PM',
+          label: 'After-work wind down',
+          isAiPick: false,
+        },
+        {
+          time: 'Tomorrow 7:00 PM',
+          label: 'Evening golden hour',
+          isAiPick: false,
+        },
+      ],
+    };
+  }
+
+  async getSuggestedRoutes(matchId: string, currentUserId: string) {
+    const match = await this.matchModel.findById(matchId).populate('users');
+    if (!match) throw new NotFoundException('Match not found');
+
+    const partner = match.users.find(u => u._id.toString() !== currentUserId) as any;
+    const partnerName = partner?.display_name || partner?.first_name || 'your partner';
+
+    return {
+      headerText: 'Pick a route that suits both your paces. We recommend starting with something scenic and conversational.',
+      routes: [
+        {
+          name: 'Riverside Loop',
+          difficulty: 'Easy',
+          description: 'Flat, scenic waterfront path. Perfect for a first run date — great views and easy conversation pace.',
+          distance: '3.1 mi',
+          elevation: '+120 ft',
+          duration: '~28 min',
+          locationType: 'Waterfront',
+          tags: ['Flat', 'Scenic', 'Beginner-friendly'],
+        },
+        {
+          name: 'Park Perimeter',
+          difficulty: 'Moderate',
+          description: 'Rolling hills through a beautiful park. Enough challenge to feel the endorphins, enough beauty to enjoy the company.',
+          distance: '5.0 mi',
+          elevation: '+240 ft',
+          duration: '~44 min',
+          locationType: 'Park',
+          tags: ['Rolling Hills', 'Nature', 'Intermediate'],
+        },
+        {
+          name: 'City Lights 5K',
+          difficulty: 'Easy',
+          description: 'Through the heart of downtown. Best at sunrise or sunset for the golden-hour effect.',
+          distance: '3.1 mi',
+          elevation: '+40 ft',
+          duration: '~25 min',
+          locationType: 'City',
+          tags: ['Flat', 'Scenic', 'Night-run'],
+        },
+      ],
+      popularLocations: [
+        {
+          name: 'Central Park South Entrance',
+          description: 'Easy landmark, plenty of parking',
+        },
+        {
+          name: 'Brooklyn Bridge Park Pier 1',
+          description: 'Scenic start, waterfront views',
+        },
+        {
+          name: 'Prospect Park Boathouse',
+          description: 'Classic runner meeting point',
+        },
+        {
+          name: 'Hudson River Greenway at 72nd St',
+          description: 'Flat, paved, great for all paces',
+        },
+      ],
+    };
+  }
+
   async respondToInvite(inviteId: string, userId: string, status: 'accepted' | 'declined') {
     const invite = await this.inviteModel.findById(inviteId);
     if (!invite) throw new NotFoundException('Invite not found');
 
-    if (invite.receiverId.toString() !== userId) {
-      throw new BadRequestException('You are not the receiver of this invite');
+    const isPendingReceiver = invite.status === 'pending' && invite.receiverId.toString() === userId;
+    const isCounterProposedSender = invite.status === 'counter_proposed' && invite.senderId.toString() === userId;
+
+    if (!isPendingReceiver && !isCounterProposedSender) {
+      throw new BadRequestException('You are not authorized to respond to this invite at this stage');
+    }
+
+    if (status === 'accepted') {
+      if (invite.status === 'counter_proposed') {
+        invite.date = invite.counterProposedDate ?? invite.date;
+        invite.time = invite.counterProposedTime ?? invite.time;
+      }
     }
 
     invite.status = status;
@@ -389,9 +520,10 @@ export class MatchesService {
     try {
       const receiver = await this.userService.findById(userId);
       const receiverName = receiver?.display_name || receiver?.first_name || 'Someone';
+      const notificationRecipientId = isCounterProposedSender ? invite.receiverId.toString() : invite.senderId.toString();
       
       await this.notificationsService.sendAndSave(
-        invite.senderId,
+        notificationRecipientId,
         `Invite ${status.charAt(0).toUpperCase() + status.slice(1)}`,
         `${receiverName} ${status} your run invite!`,
         'INVITE_RESPONSE',
@@ -401,6 +533,37 @@ export class MatchesService {
       console.error('Error sending invite response notification:', error);
     }
 
+    return invite;
+  }
+
+  async counterPropose(inviteId: string, userId: string, body: CounterProposalDto) {
+    const invite = await this.inviteModel.findById(inviteId);
+    if (!invite) throw new NotFoundException('Invite not found');
+
+    if (invite.receiverId.toString() !== userId) {
+      throw new BadRequestException('You are not authorized to counter-propose this invite');
+    }
+
+    invite.counterProposedDate = body.date;
+    invite.counterProposedTime = body.time;
+    invite.status = 'counter_proposed';
+
+    await invite.save();
+
+    try {
+      const sender = await this.userService.findById(userId);
+      const senderName = sender?.display_name || sender?.first_name || 'Someone';
+
+      await this.notificationsService.sendAndSave(
+        invite.senderId.toString(),
+        'New Time Proposed!',
+        `${senderName} proposed a new time for your run invite!`,
+        'RUN_INVITE_COUNTER',
+        { inviteId: invite._id.toString() }
+      );
+    } catch (error) {
+      console.error('Error sending counter-propose notification:', error);
+    }
 
     return invite;
   }
@@ -412,12 +575,29 @@ export class MatchesService {
     limit: number = 10,
   ) {
     const userObjectId = new Types.ObjectId(userId);
-    const query: any = { receiverId: userObjectId };
+    let query: any;
 
     if (filter === 'active') {
-      query.status = 'accepted';
+      query = {
+        $or: [
+          { receiverId: userObjectId, status: 'accepted' },
+          { senderId: userObjectId, status: 'accepted' }
+        ]
+      };
     } else if (filter === 'new') {
-      query.status = 'pending';
+      query = {
+        $or: [
+          { receiverId: userObjectId, status: 'pending' },
+          { senderId: userObjectId, status: 'counter_proposed' }
+        ]
+      };
+    } else {
+      query = {
+        $or: [
+          { receiverId: userObjectId },
+          { senderId: userObjectId, status: 'counter_proposed' }
+        ]
+      };
     }
 
     const skip = (page - 1) * limit;
@@ -426,6 +606,7 @@ export class MatchesService {
       this.inviteModel
         .find(query)
         .populate('senderId', 'first_name last_name display_name age image running_level')
+        .populate('receiverId', 'first_name last_name display_name age image running_level')
         .populate('matchId')
         .sort({ createdAt: -1 })
         .skip(skip)

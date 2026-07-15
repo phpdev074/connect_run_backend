@@ -1,10 +1,11 @@
 import { Controller, Get, Post, Body, Req, UseGuards, Query, HttpStatus, Param } from '@nestjs/common';
 import { MatchesService } from './matches.service';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth, ApiOperation, ApiTags, ApiQuery, ApiBody } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiQuery, ApiBody, ApiParam } from '@nestjs/swagger';
 import { LikeUserDto } from './dto/like-user.dto';
 import { CreateRunInviteDto } from './dto/create-run-invite.dto';
 import { RespondInviteDto } from './dto/respond-invite.dto';
+import { CounterProposalDto } from './dto/counter-proposal.dto';
 
 
 @ApiTags('Matches')
@@ -143,6 +144,32 @@ export class MatchesController {
     };
   }
 
+  @Get(':id/suggested-times')
+  @ApiOperation({ summary: 'Get suggested times for a match based on partner activity patterns' })
+  @ApiParam({ name: 'id', description: 'The Match ID' })
+  async getSuggestedTimes(@Param('id') id: string, @Req() req) {
+    const data = await this.matchesService.getSuggestedTimes(id, req.user.id);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Suggested times fetched successfully',
+      data,
+    };
+  }
+
+  @Get(':id/suggested-routes')
+  @ApiOperation({ summary: 'Get suggested routes and popular meeting locations for a match' })
+  @ApiParam({ name: 'id', description: 'The Match ID' })
+  async getSuggestedRoutes(@Param('id') id: string, @Req() req) {
+    const data = await this.matchesService.getSuggestedRoutes(id, req.user.id);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Suggested routes and locations fetched successfully',
+      data,
+    };
+  }
+
   @Post(':id/detailed-invite')
   @ApiOperation({ summary: 'Send a detailed run invite (Virtual/In-Person) with date, time, and point requirements' })
   @ApiBody({ type: CreateRunInviteDto })
@@ -152,6 +179,19 @@ export class MatchesController {
       statusCode: HttpStatus.CREATED,
       success: true,
       message: 'Run invite sent successfully',
+      data,
+    };
+  }
+
+  @Post('invite/:inviteId/counter-propose')
+  @ApiOperation({ summary: 'Propose a new date/time for a run invite' })
+  @ApiBody({ type: CounterProposalDto })
+  async counterPropose(@Param('inviteId') inviteId: string, @Req() req, @Body() body: CounterProposalDto) {
+    const data = await this.matchesService.counterPropose(inviteId, req.user.id, body);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Counter proposal sent successfully',
       data,
     };
   }
