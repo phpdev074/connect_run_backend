@@ -132,6 +132,19 @@ export class MatchesController {
     };
   }
 
+  @Get('suggested-locations')
+  @ApiOperation({ summary: 'Get suggested meeting locations based on route name' })
+  @ApiQuery({ name: 'routeName', required: false, description: 'The selected route name' })
+  async getSuggestedLocations(@Query('routeName') routeName?: string) {
+    const data = await this.matchesService.getSuggestedLocations(routeName);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Suggested locations fetched successfully',
+      data,
+    };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get details of a specific match' })
   async getMatchDetails(@Param('id') id: string) {
@@ -158,17 +171,19 @@ export class MatchesController {
   }
 
   @Get(':id/suggested-routes')
-  @ApiOperation({ summary: 'Get suggested routes and popular meeting locations based on partner User ID' })
+  @ApiOperation({ summary: 'Get suggested routes based on partner User ID' })
   @ApiParam({ name: 'id', description: 'The Partner User ID' })
   async getSuggestedRoutes(@Param('id') id: string, @Req() req) {
     const data = await this.matchesService.getSuggestedRoutes(id, req.user.id);
     return {
       statusCode: HttpStatus.OK,
       success: true,
-      message: 'Suggested routes and locations fetched successfully',
+      message: 'Suggested routes fetched successfully',
       data,
     };
   }
+
+
 
   @Post(':id/detailed-invite')
   @ApiOperation({ summary: 'Send a detailed run invite (Virtual/In-Person) with date, time, and point requirements' })

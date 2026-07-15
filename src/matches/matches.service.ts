@@ -432,8 +432,6 @@ export class MatchesService {
     const partner = await this.userService.findById(partnerUserId);
     if (!partner) throw new NotFoundException('Partner user not found');
 
-    const partnerName = partner?.display_name || partner?.first_name || 'your partner';
-
     return {
       headerText: 'Pick a route that suits both your paces. We recommend starting with something scenic and conversational.',
       routes: [
@@ -468,24 +466,72 @@ export class MatchesService {
           tags: ['Flat', 'Scenic', 'Night-run'],
         },
       ],
-      popularLocations: [
-        {
-          name: 'Central Park South Entrance',
-          description: 'Easy landmark, plenty of parking',
-        },
-        {
-          name: 'Brooklyn Bridge Park Pier 1',
-          description: 'Scenic start, waterfront views',
-        },
-        {
-          name: 'Prospect Park Boathouse',
-          description: 'Classic runner meeting point',
-        },
-        {
-          name: 'Hudson River Greenway at 72nd St',
-          description: 'Flat, paved, great for all paces',
-        },
-      ],
+    };
+  }
+
+  async getSuggestedLocations(routeName?: string) {
+    let locations = [
+      {
+        name: 'Central Park South Entrance',
+        description: 'Easy landmark, plenty of parking',
+      },
+      {
+        name: 'Brooklyn Bridge Park Pier 1',
+        description: 'Scenic start, waterfront views',
+      },
+      {
+        name: 'Prospect Park Boathouse',
+        description: 'Classic runner meeting point',
+      },
+      {
+        name: 'Hudson River Greenway at 72nd St',
+        description: 'Flat, paved, great for all paces',
+      },
+    ];
+
+    if (routeName) {
+      const lowerRoute = routeName.toLowerCase();
+      if (lowerRoute.includes('riverside')) {
+        locations = [
+          {
+            name: 'Central Park South Entrance',
+            description: 'Easy landmark, plenty of parking',
+          },
+          {
+            name: 'Brooklyn Bridge Park Pier 1',
+            description: 'Scenic start, waterfront views',
+          },
+        ];
+      } else if (lowerRoute.includes('park') || lowerRoute.includes('perimeter')) {
+        locations = [
+          {
+            name: 'Prospect Park Boathouse',
+            description: 'Classic runner meeting point',
+          },
+          {
+            name: 'Central Park South Entrance',
+            description: 'Easy landmark, plenty of parking',
+          },
+        ];
+      } else if (lowerRoute.includes('city') || lowerRoute.includes('lights') || lowerRoute.includes('5k')) {
+        locations = [
+          {
+            name: 'Hudson River Greenway at 72nd St',
+            description: 'Flat, paved, great for all paces',
+          },
+          {
+            name: 'Brooklyn Bridge Park Pier 1',
+            description: 'Scenic start, waterfront views',
+          },
+        ];
+      }
+    }
+
+    return {
+      headerText: routeName
+        ? `Select a meeting location for the ${routeName} route.`
+        : 'Select a meeting location.',
+      locations,
     };
   }
 
