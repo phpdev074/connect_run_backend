@@ -132,13 +132,126 @@ export class MatchesService {
       });
     }
 
-    // Add action and isRequested to user objects
+    // Fetch current user profile for comparison
+    const currentUser = await this.userModel.findById(userObjectId).select(
+      'running_level average_pace preferred_days fitness_goals interests modes',
+    );
+
+    // Add action, isRequested, matchPercentage, and whyYouMatched to user objects
     const dataWithAction = data.map(user => {
       const action = requestedMatches[user._id.toString()] || 'none';
+      const userObj = user.toObject();
+
+      // --- Static match percentage & reasons (bypass AI for now) ---
+      const reasons: { icon: string; title: string; subtitle: string }[] = [];
+      let matchScore = 0;
+      let totalFactors = 0;
+
+      // 1. Running level match
+      totalFactors++;
+      if (
+        currentUser?.running_level &&
+        userObj.running_level &&
+        currentUser.running_level.toLowerCase() === userObj.running_level.toLowerCase()
+      ) {
+        matchScore++;
+        reasons.push({
+          icon: '🏃',
+          title: 'Running Level',
+          subtitle: `Both ${userObj.running_level}`,
+        });
+      }
+
+      // 2. Pace match
+      totalFactors++;
+      if (currentUser?.average_pace && userObj.average_pace) {
+        const currentPace = parseFloat(currentUser.average_pace.replace(/[^0-9.]/g, ''));
+        const targetPace = parseFloat(userObj.average_pace.replace(/[^0-9.]/g, ''));
+        if (!isNaN(currentPace) && !isNaN(targetPace) && Math.abs(currentPace - targetPace) <= 1.5) {
+          matchScore++;
+          reasons.push({
+            icon: '⏱️',
+            title: 'Pace Match',
+            subtitle: `Similar pace ~${userObj.average_pace}`,
+          });
+        }
+      }
+
+      // 3. Preferred days overlap
+      totalFactors++;
+      const commonDays = (currentUser?.preferred_days || []).filter(
+        (d) => (userObj.preferred_days || []).includes(d),
+      );
+      if (commonDays.length > 0) {
+        matchScore++;
+        reasons.push({
+          icon: '📅',
+          title: 'Schedule',
+          subtitle: `Both prefer ${commonDays.slice(0, 2).join(', ')} runs`,
+        });
+      }
+
+      // 4. Fitness goals overlap
+      totalFactors++;
+      const commonGoals = (currentUser?.fitness_goals || []).filter(
+        (g) => (userObj.fitness_goals || []).includes(g),
+      );
+      if (commonGoals.length > 0) {
+        matchScore++;
+        reasons.push({
+          icon: '🏅',
+          title: 'Goal Match',
+          subtitle: commonGoals.slice(0, 2).join(', '),
+        });
+      }
+
+      // 5. Interests overlap
+      totalFactors++;
+      const commonInterests = (currentUser?.interests || []).filter(
+        (i) => (userObj.interests || []).includes(i),
+      );
+      if (commonInterests.length > 0) {
+        matchScore++;
+        reasons.push({
+          icon: '💡',
+          title: 'Shared Interests',
+          subtitle: commonInterests.slice(0, 2).join(', '),
+        });
+      }
+
+      // 6. Mode overlap (Virtual Run / In-Person)
+      totalFactors++;
+      const commonModes = (currentUser?.modes || []).filter(
+        (m) => (userObj.modes || []).includes(m),
+      );
+      if (commonModes.length > 0) {
+        matchScore++;
+        reasons.push({
+          icon: '🎯',
+          title: 'Run Mode',
+          subtitle: `Both enjoy ${commonModes.join(' & ')}`,
+        });
+      }
+
+      // Calculate percentage (minimum 60% baseline + up to 40% from factors)
+      const factorPercentage = totalFactors > 0 ? (matchScore / totalFactors) * 40 : 0;
+      const matchPercentage = Math.min(99, Math.round(60 + factorPercentage));
+
+      // Ensure at least one reason is always present
+      if (reasons.length === 0) {
+        reasons.push({
+          icon: '✨',
+          title: 'New Connection',
+          subtitle: 'Explore a new running partner!',
+        });
+      }
+
       return {
-        ...user.toObject(),
+        ...userObj,
         action: action,
         isRequested: action !== 'none',
+        matchPercentage,
+        whyYouMatched: reasons,
       };
     });
 
