@@ -395,11 +395,30 @@ export class MatchesService {
 
   async getPendingLikes(userId: string) {
     const userObjectId = new Types.ObjectId(userId);
-    return this.matchModel.find({
+    let data: any = await this.matchModel.find({
       users: userObjectId,
       status: 'pending',
       likedBy: { $ne: userObjectId }, // Liked by the other user, not me
-    }).populate('users', 'first_name last_name display_name age image running_level');
+    })
+      .populate('users')
+      .populate('runInviteId');
+
+    return data.map((match) => {
+      const matchObj = match.toObject();
+      if (matchObj.runInviteId && typeof matchObj.runInviteId === 'object') {
+        const isSender = matchObj.runInviteId.senderId && matchObj.runInviteId.senderId.toString() === userId;
+        if (matchObj.runInviteId.status === 'pending') {
+          matchObj.inviteStatus = isSender ? 'pending' : 'invited';
+        } else if (matchObj.runInviteId.status === 'counter_proposed') {
+          matchObj.inviteStatus = isSender ? 'invited' : 'pending';
+        } else {
+          matchObj.inviteStatus = matchObj.runInviteId.status;
+        }
+      } else {
+        matchObj.inviteStatus = 'none';
+      }
+      return matchObj;
+    });
   }
 
   async sendVirtualRunInvite(matchId: string) {
