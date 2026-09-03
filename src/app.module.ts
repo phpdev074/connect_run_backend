@@ -24,6 +24,7 @@ import { PaceModule } from './pace/pace.module';
 import { PostModule } from './post/post.module';
 import { BlockModule } from './block/block.module';
 import { StoryModule } from './story/story.module';
+import { RaceModule } from './race/race.module';
 
 @Module({
   imports: [
@@ -63,7 +64,8 @@ import { StoryModule } from './story/story.module';
     PaceModule,
     PostModule,
     BlockModule,
-    StoryModule
+    StoryModule,
+    RaceModule,
   ],
 })
 export class AppModule { }
