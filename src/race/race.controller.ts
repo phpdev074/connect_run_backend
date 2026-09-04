@@ -59,18 +59,6 @@ export class RaceController {
     };
   }
 
-  @Get('featured')
-  @ApiOperation({ summary: 'Get featured upcoming races' })
-  async getFeatured(@Req() req): Promise<any> {
-    const data = await this.raceService.getFeaturedRaces(req.user.id);
-    return {
-      statusCode: HttpStatus.OK,
-      success: true,
-      message: 'Featured races fetched successfully',
-      data,
-    };
-  }
-
   @Get('leaderboard')
   @ApiOperation({ summary: 'Get races / runners leaderboard ranking' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })

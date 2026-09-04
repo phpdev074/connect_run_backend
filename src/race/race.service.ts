@@ -27,13 +27,13 @@ export class RaceService {
       participants: [],
       participantsCount: 0,
       tags: createRaceDto.tags || [],
-      isFeatured: createRaceDto.isFeatured || false,
       maxSpots: createRaceDto.maxSpots || 0,
-      status: 'upcoming',
+      status: createRaceDto.status || 'upcoming',
       isActive: true,
     });
 
-    return await createdRace.save();
+    const saved = await createdRace.save();
+    return this.findOne(saved._id.toString(), userId);
   }
 
   async findAll(userId: string, query: RaceQueryDto): Promise<any> {
@@ -45,8 +45,7 @@ export class RaceService {
       distance,
       tag,
       tab,
-      isFeatured,
-      status = 'upcoming',
+      status,
       sortBy = 'date',
       sortOrder = 'asc',
       page = 1,
@@ -135,19 +134,9 @@ export class RaceService {
       filter.tags = { $in: [new RegExp(tag.trim(), 'i')] };
     }
 
-    // 7. Featured filter
-    if (typeof isFeatured === 'boolean') {
-      filter.isFeatured = isFeatured;
-    }
-
-    // 8. Status filter
-    if (status && status.trim() && status !== 'all') {
-      if (status === 'upcoming') {
-        filter.status = 'upcoming';
-        filter.date = { $gte: new Date() };
-      } else {
-        filter.status = status;
-      }
+    // 7. Status filter
+    if (status && status.trim() && status.toLowerCase() !== 'all') {
+      filter.status = status.trim().toLowerCase();
     }
 
     // Sorting
@@ -164,7 +153,7 @@ export class RaceService {
 
     const skip = (page - 1) * limit;
 
-    const [races, total, featuredRaces] = await Promise.all([
+    const [races, total] = await Promise.all([
       this.raceModel
         .find(filter)
         .populate('userId', 'full_name display_name first_name last_name image email')
@@ -173,15 +162,6 @@ export class RaceService {
         .limit(limit)
         .lean(),
       this.raceModel.countDocuments(filter),
-      // If on page 1 and no specific tab or filter, also fetch featured races
-      page === 1 && (!tab || tab === 'published')
-        ? this.raceModel
-            .find({ isActive: true, isFeatured: true, date: { $gte: new Date() } })
-            .populate('userId', 'full_name display_name first_name last_name image email')
-            .sort({ date: 1 })
-            .limit(5)
-            .lean()
-        : Promise.resolve([]),
     ]);
 
     const formatRace = (race: any) => {
@@ -207,42 +187,11 @@ export class RaceService {
 
     return {
       races: races.map(formatRace),
-      featuredRaces: featuredRaces.map(formatRace),
       total,
       page,
       limit,
       totalPages: Math.ceil(total / limit) || 1,
     };
-  }
-
-  async getFeaturedRaces(userId: string): Promise<any> {
-    const races = await this.raceModel
-      .find({ isActive: true, isFeatured: true, date: { $gte: new Date() } })
-      .populate('userId', 'full_name display_name first_name last_name image email')
-      .sort({ date: 1 })
-      .limit(10)
-      .lean();
-
-    return races.map((race: any) => {
-      const participantsCount =
-        race.participants?.length || race.participantsCount || 0;
-      const maxSpots = race.maxSpots || 0;
-      const spotsLeft = maxSpots > 0 ? Math.max(0, maxSpots - participantsCount) : null;
-      const isJoined = userId
-        ? race.participants?.some(
-            (p: any) =>
-              p?.toString() === userId || p?._id?.toString() === userId,
-          )
-        : false;
-
-      return {
-        ...race,
-        isJoined,
-        participantsCount,
-        maxSpots,
-        spotsLeft,
-      };
-    });
   }
 
   async getLeaderboard(page: number = 1, limit: number = 20): Promise<any> {

@@ -60,9 +60,6 @@ export class Race {
   @Prop({ type: [String], default: [] })
   tags: string[]; // e.g. ['Marathon', 'Road', 'Certified', 'Chip Timed']
 
-  @Prop({ default: false })
-  isFeatured: boolean;
-
   @Prop({ default: 0 })
   maxSpots?: number; // Total capacity e.g. 6000
 
@@ -91,6 +88,5 @@ RaceSchema.index({ name: 'text', organizer: 'text', location: 'text', city: 'tex
 RaceSchema.index({ date: 1 });
 RaceSchema.index({ raceType: 1 });
 RaceSchema.index({ distance: 1 });
-RaceSchema.index({ isFeatured: 1 });
 RaceSchema.index({ status: 1 });
 RaceSchema.index({ isActive: 1 });

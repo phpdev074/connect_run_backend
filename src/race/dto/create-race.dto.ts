@@ -9,7 +9,7 @@ import {
   IsBoolean,
   IsNumber,
 } from 'class-validator';
-import { RaceType } from '../entities/race.entity';
+import { RaceType, RaceStatus } from '../entities/race.entity';
 
 export class CreateRaceDto {
   @ApiProperty({
@@ -47,7 +47,7 @@ export class CreateRaceDto {
 
   @ApiProperty({
     description: 'Date and time of the race',
-    example: '2026-02-15T08:00:00.000Z',
+    example: '2026-12-15T08:00:00.000Z',
   })
   @IsNotEmpty({ message: 'Date is required' })
   @IsDateString({}, { message: 'Date must be a valid ISO-8601 date string' })
@@ -114,19 +114,20 @@ export class CreateRaceDto {
   tags?: string[];
 
   @ApiPropertyOptional({
-    description: 'Whether this race is featured',
-    example: true,
-    default: false,
-  })
-  @IsOptional()
-  @IsBoolean()
-  isFeatured?: boolean;
-
-  @ApiPropertyOptional({
     description: 'Maximum capacity / spots available for the race',
     example: 6000,
   })
   @IsOptional()
   @IsNumber()
   maxSpots?: number;
+
+  @ApiPropertyOptional({
+    description: 'Status of the race',
+    enum: RaceStatus,
+    example: RaceStatus.UPCOMING,
+    default: RaceStatus.UPCOMING,
+  })
+  @IsOptional()
+  @IsEnum(RaceStatus)
+  status?: RaceStatus;
 }

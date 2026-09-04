@@ -60,18 +60,8 @@ export class RaceQueryDto {
   tab?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter only featured races',
-    example: true,
-  })
-  @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
-  @IsBoolean()
-  isFeatured?: boolean;
-
-  @ApiPropertyOptional({
     description: 'Filter by status (upcoming, ongoing, completed, cancelled, all)',
     example: 'upcoming',
-    default: 'upcoming',
   })
   @IsOptional()
   @IsString()
