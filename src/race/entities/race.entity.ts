@@ -39,8 +39,11 @@ export class Race {
   @Prop({ required: true })
   date: Date;
 
-  @Prop({ required: true, trim: true })
-  location: string; // e.g. "Zilker Park, Austin TX"
+  @Prop({ required: false, trim: true })
+  platform?: string;
+
+  @Prop({ required: false, trim: true })
+  location?: string; // e.g. "Zilker Park, Austin TX"
 
   @Prop({ trim: true })
   city?: string; // e.g. "Austin"

@@ -54,10 +54,18 @@ export class CreateRaceDto {
   date: string;
 
   @ApiProperty({
+    description: 'Platform of the race',
+    example: 'ConnectRun',
+  })
+  @IsOptional()
+  @IsString()
+  platform?: string;
+
+  @ApiProperty({
     description: 'Location or address of the race',
     example: 'Austin, TX',
   })
-  @IsNotEmpty({ message: 'Location / Address is required' })
+  @IsOptional()
   @IsString()
   location: string;
 

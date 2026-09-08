@@ -5,7 +5,7 @@ import { IsOptional, IsString, IsNumber, Min, IsBoolean } from 'class-validator'
 export class RaceQueryDto {
   @ApiPropertyOptional({
     description: 'Search query across race name, organizer, location, city, tags, distance',
-    example: 'Austin',
+
   })
   @IsOptional()
   @IsString()
@@ -13,7 +13,7 @@ export class RaceQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by city or location',
-    example: 'Austin, TX',
+
   })
   @IsOptional()
   @IsString()
@@ -21,7 +21,7 @@ export class RaceQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by city',
-    example: 'Austin',
+
   })
   @IsOptional()
   @IsString()
@@ -29,7 +29,7 @@ export class RaceQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by race type (All Races, In-Person, Virtual)',
-    example: 'In-Person',
+
   })
   @IsOptional()
   @IsString()
@@ -37,7 +37,7 @@ export class RaceQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by distance (Any Distance, 5K, 10K, Half, Full, Other)',
-    example: '5K',
+
   })
   @IsOptional()
   @IsString()
@@ -45,7 +45,7 @@ export class RaceQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by tag (e.g. Marathon, Road, Certified, Chip Timed)',
-    example: 'Marathon',
+
   })
   @IsOptional()
   @IsString()
@@ -53,7 +53,7 @@ export class RaceQueryDto {
 
   @ApiPropertyOptional({
     description: 'Tab selection: published, my-races, joined',
-    example: 'published',
+
   })
   @IsOptional()
   @IsString()
@@ -61,7 +61,6 @@ export class RaceQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by status (upcoming, ongoing, completed, cancelled, all)',
-    example: 'upcoming',
   })
   @IsOptional()
   @IsString()
@@ -69,8 +68,6 @@ export class RaceQueryDto {
 
   @ApiPropertyOptional({
     description: 'Sort by field (date, createdAt, participantsCount)',
-    example: 'date',
-    default: 'date',
   })
   @IsOptional()
   @IsString()
@@ -78,8 +75,6 @@ export class RaceQueryDto {
 
   @ApiPropertyOptional({
     description: 'Sort order (asc, desc)',
-    example: 'asc',
-    default: 'asc',
   })
   @IsOptional()
   @IsString()
