@@ -24,6 +24,7 @@ import { RaceService } from './race.service';
 import { CreateRaceDto } from './dto/create-race.dto';
 import { UpdateRaceDto } from './dto/update-race.dto';
 import { RaceQueryDto } from './dto/race-query.dto';
+import { LeaderboardQueryDto } from './dto/leaderboard-query.dto';
 
 @ApiTags('Races')
 @ApiBearerAuth()
@@ -60,14 +61,14 @@ export class RaceController {
   }
 
   @Get('leaderboard')
-  @ApiOperation({ summary: 'Get races / runners leaderboard ranking' })
-  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiOperation({
+    summary: 'Get runners leaderboard dashboard (Weekly, Monthly, Yearly, All-time)',
+  })
   async getLeaderboard(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
+    @Req() req,
+    @Query() query: LeaderboardQueryDto,
   ): Promise<any> {
-    const data = await this.raceService.getLeaderboard(page, limit);
+    const data = await this.raceService.getLeaderboard(req.user.id, query);
     return {
       statusCode: HttpStatus.OK,
       success: true,
