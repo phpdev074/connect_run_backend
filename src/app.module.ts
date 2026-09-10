@@ -25,6 +25,7 @@ import { PostModule } from './post/post.module';
 import { BlockModule } from './block/block.module';
 import { StoryModule } from './story/story.module';
 import { RaceModule } from './race/race.module';
+import { TeamsModule } from './teams/teams.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { RaceModule } from './race/race.module';
     BlockModule,
     StoryModule,
     RaceModule,
+    TeamsModule,
   ],
 })
 export class AppModule { }
