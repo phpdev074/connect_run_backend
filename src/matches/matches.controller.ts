@@ -97,8 +97,11 @@ export class MatchesController {
 
   @Get('list')
   @ApiOperation({ summary: 'Get list of all current matches' })
-  async getMatches(@Req() req) {
-    const data = await this.matchesService.getMatches(req.user.id);
+  @ApiQuery({ name: "search", required: false, type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  async getMatches(@Req() req, @Query('page') page = 1, @Query('limit') limit = 10, @Query('search') search: string) {
+    const data = await this.matchesService.getMyMatches(req.user.id, Number(page), Number(limit), search);
     return {
       statusCode: HttpStatus.OK,
       success: true,

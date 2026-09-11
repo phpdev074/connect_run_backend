@@ -329,7 +329,7 @@ export class MatchesService {
           'MATCH',
           { matchId: match._id.toString() }
         );
-        
+
         // Notify User B
         await this.notificationsService.sendAndSave(
           targetId,
@@ -427,6 +427,47 @@ export class MatchesService {
     }, { new: true });
   }
 
+  async getMyMatches(userId: string, page: number = 1, limit: number = 10, search: string) {
+    let userObjectId = new Types.ObjectId(userId);
+    let query: any = { users: userObjectId, status: 'matched', };
+
+    if (search) {
+      query.$and = [
+        {
+          $or: [
+            { 'users.first_name': { $regex: search, $options: 'i' } },
+            { 'users.last_name': { $regex: search, $options: 'i' } },
+            { 'users.display_name': { $regex: search, $options: 'i' } }
+          ]
+        }
+      ];
+    }
+
+    let data: any = await this.matchModel.find(query)
+      .sort({ updatedAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate('users').populate("runInviteId");
+
+    return data.map((match) => {
+      const matchObj = match.toObject();
+      if (matchObj.runInviteId && typeof matchObj.runInviteId === 'object') {
+        const isSender = matchObj.runInviteId.senderId && matchObj.runInviteId.senderId.toString() === userId;
+        if (matchObj.runInviteId.status === 'pending') {
+          matchObj.inviteStatus = isSender ? 'pending' : 'invited';
+        } else if (matchObj.runInviteId.status === 'counter_proposed') {
+          matchObj.inviteStatus = isSender ? 'invited' : 'pending';
+        } else {
+          matchObj.inviteStatus = matchObj.runInviteId.status;
+        }
+      } else {
+        matchObj.inviteStatus = 'none';
+      }
+      return matchObj;
+    });
+  }
+
+
   async getMatches(userId: string) {
     let userObjectId = new Types.ObjectId(userId);
     let data: any = await this.matchModel.find({ users: userObjectId, status: 'matched', }).populate('users').populate("runInviteId");
@@ -518,7 +559,7 @@ export class MatchesService {
     try {
       const sender = await this.userService.findById(senderId);
       const senderName = sender?.display_name || sender?.first_name || 'Someone';
-      
+
       await this.notificationsService.sendAndSave(
         receiverId.toString(),
         'New Run Invite!',
@@ -741,7 +782,7 @@ export class MatchesService {
       const receiver = await this.userService.findById(userId);
       const receiverName = receiver?.display_name || receiver?.first_name || 'Someone';
       const notificationRecipientId = isCounterProposedSender ? invite.receiverId.toString() : invite.senderId.toString();
-      
+
       await this.notificationsService.sendAndSave(
         notificationRecipientId,
         `Invite ${status.charAt(0).toUpperCase() + status.slice(1)}`,
