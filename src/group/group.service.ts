@@ -12,6 +12,7 @@ import { AddMembersDto } from './dto/add-members.dto';
 import { CreateGroupRunDto } from './dto/create-group-run.dto';
 import { RecordCoordinateDto } from '../community/dto/record-coordinate.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { Chat, ChatDocument } from '../chat/entities/chat.entity';
 
 @Injectable()
 export class GroupService {
@@ -21,6 +22,7 @@ export class GroupService {
     @InjectModel(Match.name) private matchModel: Model<MatchDocument>,
     @InjectModel(GroupRun.name) private groupRunModel: Model<GroupRunDocument>,
     @InjectModel(GroupRunPath.name) private groupRunPathModel: Model<GroupRunPathDocument>,
+    @InjectModel(Chat.name) private chatModel: Model<ChatDocument>,
     private readonly notificationsService: NotificationsService,
   ) { }
 
@@ -83,6 +85,21 @@ export class GroupService {
       createdBy: creatorObjectId,
       members: uniqueMembers,
     });
+
+    // Automatically create Group Chat
+    try {
+      await this.chatModel.create({
+        participants: uniqueMembers,
+        isLocked: false,
+        lastActivity: new Date(),
+        groupName: group.name,
+        groupImage: group.image,
+        type: 'group',
+        referenceId: group._id,
+      });
+    } catch (error) {
+      console.error('Failed to create group chat:', error);
+    }
 
     // Send notifications to added members (excluding the creator)
     if (createGroupDto.members && createGroupDto.members.length > 0) {
@@ -205,9 +222,23 @@ export class GroupService {
     if (updateGroupDto.image !== undefined) group.image = updateGroupDto.image;
     if (updateGroupDto.paceRange !== undefined) group.paceRange = updateGroupDto.paceRange;
     if (updateGroupDto.maxMembers !== undefined) group.maxMembers = updateGroupDto.maxMembers;
-    if (updateGroupDto.visibility !== undefined) group.visibility = updateGroupDto.visibility;
-
     await group.save();
+
+    // Sync chat details
+    try {
+      const updateFields: any = {};
+      if (updateGroupDto.name !== undefined) updateFields.groupName = updateGroupDto.name;
+      if (updateGroupDto.image !== undefined) updateFields.groupImage = updateGroupDto.image;
+      if (updateGroupDto.members) updateFields.participants = group.members;
+      if (Object.keys(updateFields).length > 0) {
+        await this.chatModel.updateOne(
+          { referenceId: group._id, type: 'group' },
+          { $set: updateFields },
+        );
+      }
+    } catch (error) {
+      console.error('Failed to sync group chat update:', error);
+    }
 
     // Send notifications to newly added members
     if (newlyAddedMembers.length > 0) {
@@ -246,6 +277,14 @@ export class GroupService {
     }
 
     await this.groupModel.findByIdAndDelete(id);
+
+    // Delete associated group chat
+    try {
+      await this.chatModel.deleteOne({ referenceId: new Types.ObjectId(id), type: 'group' });
+    } catch (error) {
+      console.error('Failed to delete group chat:', error);
+    }
+
     return { deleted: true };
   }
 
@@ -277,6 +316,16 @@ export class GroupService {
     }
 
     await group.save();
+
+    // Sync group chat participants
+    try {
+      await this.chatModel.updateOne(
+        { referenceId: group._id, type: 'group' },
+        { $addToSet: { participants: { $each: group.members } } },
+      );
+    } catch (error) {
+      console.error('Failed to update group chat members:', error);
+    }
 
     // Send notifications to newly added members
     if (newlyAddedMembers.length > 0) {
@@ -321,6 +370,16 @@ export class GroupService {
 
     group.members.splice(memberIndex, 1);
     await group.save();
+
+    // Remove user from group chat participants
+    try {
+      await this.chatModel.updateOne(
+        { referenceId: group._id, type: 'group' },
+        { $pull: { participants: new Types.ObjectId(userId) } },
+      );
+    } catch (error) {
+      console.error('Failed to remove user from group chat:', error);
+    }
 
     return {
       success: true,

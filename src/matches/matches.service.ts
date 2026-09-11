@@ -427,46 +427,116 @@ export class MatchesService {
     }, { new: true });
   }
 
-  async getMyMatches(userId: string, page: number = 1, limit: number = 10, search: string) {
-    let userObjectId = new Types.ObjectId(userId);
-    let query: any = { users: userObjectId, status: 'matched', };
+  async getMyMatches(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+    search: string = '',
+  ) {
+    const userObjectId = new Types.ObjectId(userId);
 
-    if (search) {
+    const query: any = {
+      users: userObjectId,
+      status: 'matched',
+    };
+
+    // Search by user name
+    if (search?.trim()) {
+      const searchText = search.trim();
+
+      const matchingUsers = await this.userModel
+        .find({
+          $or: [
+            {
+              first_name: {
+                $regex: searchText,
+                $options: 'i',
+              },
+            },
+            {
+              last_name: {
+                $regex: searchText,
+                $options: 'i',
+              },
+            },
+            {
+              display_name: {
+                $regex: searchText,
+                $options: 'i',
+              },
+            },
+          ],
+        })
+        .select('_id')
+        .lean();
+
+      const matchingUserIds = matchingUsers.map(
+        (user) => user._id,
+      );
+
+      // No user found for search
+      if (matchingUserIds.length === 0) {
+        return [];
+      }
+
+      // Match must contain:
+      // 1. Logged-in user
+      // 2. Searched user
       query.$and = [
         {
-          $or: [
-            { 'users.first_name': { $regex: search, $options: 'i' } },
-            { 'users.last_name': { $regex: search, $options: 'i' } },
-            { 'users.display_name': { $regex: search, $options: 'i' } }
-          ]
-        }
+          users: userObjectId,
+        },
+        {
+          users: {
+            $in: matchingUserIds,
+          },
+        },
       ];
     }
 
-    let data: any = await this.matchModel.find(query)
+    const data: any[] = await this.matchModel
+      .find(query)
       .sort({ updatedAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
-      .populate('users').populate("runInviteId");
+      .populate({
+        path: 'users',
+        select:
+          'profile_image_url display_name last_name first_name',
+      })
+      .populate('runInviteId')
+      .lean();
 
     return data.map((match) => {
-      const matchObj = match.toObject();
-      if (matchObj.runInviteId && typeof matchObj.runInviteId === 'object') {
-        const isSender = matchObj.runInviteId.senderId && matchObj.runInviteId.senderId.toString() === userId;
-        if (matchObj.runInviteId.status === 'pending') {
-          matchObj.inviteStatus = isSender ? 'pending' : 'invited';
-        } else if (matchObj.runInviteId.status === 'counter_proposed') {
-          matchObj.inviteStatus = isSender ? 'invited' : 'pending';
+      if (
+        match.runInviteId &&
+        typeof match.runInviteId === 'object'
+      ) {
+        const isSender =
+          match.runInviteId.senderId &&
+          match.runInviteId.senderId.toString() === userId;
+
+        if (match.runInviteId.status === 'pending') {
+          match.inviteStatus = isSender
+            ? 'pending'
+            : 'invited';
+        } else if (
+          match.runInviteId.status === 'counter_proposed'
+        ) {
+          match.inviteStatus = isSender
+            ? 'invited'
+            : 'pending';
         } else {
-          matchObj.inviteStatus = matchObj.runInviteId.status;
+          match.inviteStatus =
+            match.runInviteId.status;
         }
       } else {
-        matchObj.inviteStatus = 'none';
+        match.inviteStatus = 'none';
       }
-      return matchObj;
+
+      return match;
     });
   }
-
 
   async getMatches(userId: string) {
     let userObjectId = new Types.ObjectId(userId);

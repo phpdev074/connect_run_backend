@@ -7,6 +7,7 @@ import { User, UserSchema } from '../users/entities/user.entity';
 import { Match, MatchSchema } from '../matches/entities/match.entity';
 import { GroupRun, GroupRunSchema } from './entities/group-run.entity';
 import { GroupRunPath, GroupRunPathSchema } from './entities/group-run-path.entity';
+import { Chat, ChatSchema } from '../chat/entities/chat.entity';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { GroupRunPath, GroupRunPathSchema } from './entities/group-run-path.enti
       { name: Match.name, schema: MatchSchema },
       { name: GroupRun.name, schema: GroupRunSchema },
       { name: GroupRunPath.name, schema: GroupRunPathSchema },
+      { name: Chat.name, schema: ChatSchema },
     ]),
   ],
   controllers: [GroupController],

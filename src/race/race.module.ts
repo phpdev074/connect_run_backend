@@ -5,6 +5,7 @@ import { RaceService } from './race.service';
 import { Race, RaceSchema } from './entities/race.entity';
 import { User, UserSchema } from '../users/entities/user.entity';
 import { Run, RunSchema } from '../runs/entities/run.entity';
+import { Chat, ChatSchema } from '../chat/entities/chat.entity';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { Run, RunSchema } from '../runs/entities/run.entity';
       { name: Race.name, schema: RaceSchema },
       { name: User.name, schema: UserSchema },
       { name: Run.name, schema: RunSchema },
+      { name: Chat.name, schema: ChatSchema },
     ]),
   ],
   controllers: [RaceController],

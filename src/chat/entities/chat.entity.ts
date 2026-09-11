@@ -26,11 +26,16 @@ export class Chat {
   @Prop()
   groupName?: string;
 
-  @Prop({ default: 'direct', enum: ['direct', 'group', 'community', 'pace'] })
+  @Prop()
+  groupImage?: string;
+
+  @Prop({ default: 'direct', enum: ['direct', 'group', 'team', 'race', 'community', 'pace'] })
   type: string;
 
-  @Prop({ type: Types.ObjectId, default: null })
+  @Prop({ type: Types.ObjectId, default: null, index: true })
   referenceId?: Types.ObjectId;
 }
 
 export const ChatSchema = SchemaFactory.createForClass(Chat);
+ChatSchema.index({ referenceId: 1, type: 1 });
+

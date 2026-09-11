@@ -13,6 +13,7 @@ import { CreateRaceDto } from './dto/create-race.dto';
 import { UpdateRaceDto } from './dto/update-race.dto';
 import { RaceQueryDto } from './dto/race-query.dto';
 import { LeaderboardQueryDto } from './dto/leaderboard-query.dto';
+import { Chat, ChatDocument } from '../chat/entities/chat.entity';
 
 @Injectable()
 export class RaceService {
@@ -20,6 +21,7 @@ export class RaceService {
     @InjectModel(Race.name) private readonly raceModel: Model<RaceDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Run.name) private readonly runModel: Model<RunDocument>,
+    @InjectModel(Chat.name) private readonly chatModel: Model<ChatDocument>,
   ) { }
 
   async create(userId: string, createRaceDto: CreateRaceDto): Promise<any> {
@@ -36,6 +38,22 @@ export class RaceService {
     });
 
     const saved = await createdRace.save();
+
+    // Automatically create Race Chat
+    try {
+      await this.chatModel.create({
+        participants: [new Types.ObjectId(userId)],
+        isLocked: false,
+        lastActivity: new Date(),
+        groupName: saved.name,
+        groupImage: saved.bannerImage,
+        type: 'race',
+        referenceId: saved._id,
+      });
+    } catch (error) {
+      console.error('Failed to create race chat:', error);
+    }
+
     return this.findOne(saved._id.toString(), userId);
   }
 
@@ -539,9 +557,26 @@ export class RaceService {
       updateData.date = new Date(updateRaceDto.date);
     }
 
-    return await this.raceModel
+    const updated = await this.raceModel
       .findByIdAndUpdate(id, { $set: updateData }, { new: true })
       .populate('userId', 'full_name display_name first_name last_name image email');
+
+    // Sync race chat details
+    try {
+      const updateFields: any = {};
+      if (updateRaceDto.name !== undefined) updateFields.groupName = updateRaceDto.name;
+      if (updateRaceDto.bannerImage !== undefined) updateFields.groupImage = updateRaceDto.bannerImage;
+      if (Object.keys(updateFields).length > 0) {
+        await this.chatModel.updateOne(
+          { referenceId: new Types.ObjectId(id), type: 'race' },
+          { $set: updateFields },
+        );
+      }
+    } catch (error) {
+      console.error('Failed to sync race chat on update:', error);
+    }
+
+    return updated;
   }
 
   async remove(userId: string, id: string): Promise<any> {
@@ -559,6 +594,14 @@ export class RaceService {
     }
 
     await this.raceModel.findByIdAndUpdate(id, { isActive: false });
+
+    // Delete associated race chat
+    try {
+      await this.chatModel.deleteOne({ referenceId: new Types.ObjectId(id), type: 'race' });
+    } catch (error) {
+      console.error('Failed to delete race chat:', error);
+    }
+
     return { success: true, message: 'Race deleted successfully' };
   }
 
@@ -600,6 +643,16 @@ export class RaceService {
 
     if (!updatedRace) {
       throw new NotFoundException('Race not found');
+    }
+
+    // Add user to race chat
+    try {
+      await this.chatModel.updateOne(
+        { referenceId: race._id, type: 'race' },
+        { $addToSet: { participants: userObjectId } },
+      );
+    } catch (error) {
+      console.error('Failed to add user to race chat on joinRace:', error);
     }
 
     const maxSpots = updatedRace.maxSpots || 0;
@@ -650,6 +703,16 @@ export class RaceService {
 
     if (!updatedRace) {
       throw new NotFoundException('Race not found');
+    }
+
+    // Remove user from race chat
+    try {
+      await this.chatModel.updateOne(
+        { referenceId: race._id, type: 'race' },
+        { $pull: { participants: userObjectId } },
+      );
+    } catch (error) {
+      console.error('Failed to remove user from race chat on leaveRace:', error);
     }
 
     const maxSpots = updatedRace.maxSpots || 0;

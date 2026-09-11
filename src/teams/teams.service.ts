@@ -15,12 +15,14 @@ import { UpdateTeamDto } from './dto/update-team.dto';
 import { InviteMembersDto } from './dto/team-actions.dto';
 import { JoinTeamDto } from './dto/team-actions.dto';
 import { AddChallengeDto } from './dto/team-actions.dto';
+import { Chat, ChatDocument } from '../chat/entities/chat.entity';
 
 @Injectable()
 export class TeamsService {
   constructor(
     @InjectModel(Team.name) private teamModel: Model<TeamDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Chat.name) private chatModel: Model<ChatDocument>,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -77,6 +79,21 @@ export class TeamsService {
       joinCode: dto.joinCode || this.generateJoinCode(),
     });
 
+    // Automatically create Team Chat
+    try {
+      await this.chatModel.create({
+        participants: uniqueMembers,
+        isLocked: false,
+        lastActivity: new Date(),
+        groupName: team.name,
+        groupImage: team.image,
+        type: 'team',
+        referenceId: team._id,
+      });
+    } catch (error) {
+      console.error('Failed to create team chat:', error);
+    }
+
     return this.findOne(team._id.toString());
   }
 
@@ -131,6 +148,22 @@ export class TeamsService {
     if (dto.joinCode !== undefined) team.joinCode = dto.joinCode;
 
     await team.save();
+
+    // Sync team chat details
+    try {
+      const updateFields: any = {};
+      if (dto.name !== undefined) updateFields.groupName = dto.name;
+      if (dto.image !== undefined) updateFields.groupImage = dto.image;
+      if (Object.keys(updateFields).length > 0) {
+        await this.chatModel.updateOne(
+          { referenceId: team._id, type: 'team' },
+          { $set: updateFields },
+        );
+      }
+    } catch (error) {
+      console.error('Failed to sync team chat update:', error);
+    }
+
     return this.findOne(id);
   }
 
@@ -146,6 +179,14 @@ export class TeamsService {
     }
 
     await this.teamModel.findByIdAndDelete(id);
+
+    // Delete associated team chat
+    try {
+      await this.chatModel.deleteOne({ referenceId: new Types.ObjectId(id), type: 'team' });
+    } catch (error) {
+      console.error('Failed to delete team chat:', error);
+    }
+
     return { deleted: true };
   }
 
@@ -230,6 +271,16 @@ export class TeamsService {
 
     await team.save();
 
+    // Add user to team chat
+    try {
+      await this.chatModel.updateOne(
+        { referenceId: team._id, type: 'team' },
+        { $addToSet: { participants: userObjectId } },
+      );
+    } catch (error) {
+      console.error('Failed to add user to team chat on acceptInvite:', error);
+    }
+
     try {
       const owner = await this.userModel.findById(team.createdBy.toString());
       const ownerName = owner?.display_name || owner?.first_name || 'Someone';
@@ -274,6 +325,16 @@ export class TeamsService {
 
     team.members.push(userObjectId);
     await team.save();
+
+    // Add user to team chat
+    try {
+      await this.chatModel.updateOne(
+        { referenceId: team._id, type: 'team' },
+        { $addToSet: { participants: userObjectId } },
+      );
+    } catch (error) {
+      console.error('Failed to add user to team chat on joinByCode:', error);
+    }
 
     try {
       const owner = await this.userModel.findById(team.createdBy.toString());
@@ -321,6 +382,16 @@ export class TeamsService {
     }
 
     await team.save();
+
+    // Remove user from team chat
+    try {
+      await this.chatModel.updateOne(
+        { referenceId: team._id, type: 'team' },
+        { $pull: { participants: new Types.ObjectId(userId) } },
+      );
+    } catch (error) {
+      console.error('Failed to remove user from team chat on leave:', error);
+    }
 
     try {
       await this.notificationsService.sendAndSave(
