@@ -420,10 +420,12 @@ export class ChatService {
    */
   private async ensureChatAccess(chatId: string, userId: string) {
     if (!Types.ObjectId.isValid(chatId)) {
-      throw new NotFoundException('Chat not found');
+      throw new BadRequestException(`Invalid chat ID format: "${chatId}"`);
     }
     const chat = await this.chatModel.findById(chatId);
-    if (!chat) throw new NotFoundException('Chat not found');
+    if (!chat) {
+      throw new NotFoundException(`Chat not found for chatId: "${chatId}"`);
+    }
 
     const isParticipant = chat.participants.some(
       (p) => p.toString() === userId,

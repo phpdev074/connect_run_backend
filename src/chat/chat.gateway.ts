@@ -11,7 +11,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
 import { UsersService } from '../users/users.service';
-import { Logger } from '@nestjs/common';
+import { Logger, BadRequestException } from '@nestjs/common';
 
 @WebSocketGateway({ cors: true })
 export class ChatGateway
@@ -246,8 +246,14 @@ export class ChatGateway
     @ConnectedSocket() client: Socket,
   ) {
     try {
+      if (!data?.chatId) {
+        throw new BadRequestException('chatId is required');
+      }
       const chatId = data.chatId.toString();
       const senderId = data.senderId || client.data.userId;
+      if (!senderId) {
+        throw new BadRequestException('senderId is required');
+      }
       const message = await this.chatService.sendMessage(
         senderId.toString(),
         chatId,
@@ -259,7 +265,9 @@ export class ChatGateway
       this.logger.debug(`Broadcasted newMessage to room: ${chatId}`);
       return message;
     } catch (error) {
-      this.logger.warn(`SendMessage Logic Error: ${error.message}`);
+      this.logger.warn(
+        `SendMessage failed [socket ${client.id}, user ${client.data.userId}] — received: ${JSON.stringify(data)} — error: ${error.message}`,
+      );
       return { status: 'error', message: error.message };
     }
   }
