@@ -55,6 +55,9 @@ export class Team {
 
   @Prop({ type: [{ type: Object }], default: [] })
   challenges?: Challenge[];
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
+  joinRequests: Types.ObjectId[];
 }
 
 export const TeamSchema = SchemaFactory.createForClass(Team);

@@ -10,6 +10,7 @@ import {
   Delete,
   HttpStatus,
   Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import {
@@ -226,6 +227,54 @@ export class TeamsController {
       success: true,
       message: 'Joined team successfully',
       data,
+    };
+  }
+
+  @Post(':id/join')
+  @ApiOperation({ summary: 'Request to join a team' })
+  async requestJoin(@Param('id') id: string, @Req() req) {
+    const data = await this.teamsService.requestJoinTeam(req.user.id, id);
+    return {
+      statusCode: HttpStatus.OK,
+      success: data.success,
+      message: data.message,
+    };
+  }
+
+  @Get(':id/join-requests')
+  @ApiOperation({ summary: 'Get all join requests for a team (owner/captain only)' })
+  async getJoinRequests(@Param('id') id: string, @Req() req) {
+    const data = await this.teamsService.getJoinRequests(req.user.id, id);
+    return {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Join requests fetched successfully',
+      data,
+    };
+  }
+
+  @Post(':id/join-requests/:requestId')
+  @ApiOperation({ summary: 'Approve or reject a join request (owner/captain only)' })
+  @ApiBody({ schema: { type: 'object', properties: { status: { type: 'string', enum: ['approved', 'rejected'] } } } })
+  async handleJoinRequest(
+    @Param('id') id: string,
+    @Param('requestId') requestId: string,
+    @Body('status') status: string,
+    @Req() req,
+  ) {
+    let data;
+    if (status === 'approved') {
+      data = await this.teamsService.approveJoinRequest(req.user.id, id, requestId);
+    } else if (status === 'rejected') {
+      data = await this.teamsService.rejectJoinRequest(req.user.id, id, requestId);
+    } else {
+      throw new BadRequestException('Invalid status. Use "approved" or "rejected".');
+    }
+    
+    return {
+      statusCode: HttpStatus.OK,
+      success: data.success,
+      message: data.message,
     };
   }
 }

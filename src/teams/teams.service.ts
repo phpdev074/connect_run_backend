@@ -487,7 +487,156 @@ export class TeamsService {
     team.challenges = team.challenges || [];
     team.challenges.push(challenge);
     await team.save();
-
     return this.findOne(id);
+  }
+
+  /** Request to join a team. */
+  async requestJoinTeam(userId: string, teamId: string) {
+    const team = await this.teamModel.findById(teamId);
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+
+    if (team.members.some((m) => m.toString() === userId)) {
+      throw new BadRequestException('You are already a member of this team');
+    }
+
+    if (team.joinRequests && team.joinRequests.some((r) => r.toString() === userId)) {
+      throw new BadRequestException('You have already requested to join this team');
+    }
+
+    if (!team.joinRequests) {
+      team.joinRequests = [];
+    }
+
+    team.joinRequests.push(new Types.ObjectId(userId));
+    await team.save();
+
+    // Notify the creator/captain
+    try {
+      const requester = await this.userModel.findById(userId);
+      const requesterName = requester?.display_name || requester?.first_name || 'Someone';
+      const notifyId = team.captain ? team.captain.toString() : team.createdBy.toString();
+
+      await this.notificationsService.sendAndSave(
+        notifyId,
+        'New Team Join Request!',
+        `${requesterName} requested to join your team "${team.name}".`,
+        'TEAM_JOIN_REQUEST',
+        { teamId: team._id.toString(), requesterId: userId }
+      );
+    } catch (error) {
+      console.error('Failed to send team join request notification:', error);
+    }
+
+    return {
+      success: true,
+      message: 'Join request sent successfully',
+    };
+  }
+
+  /** Get all join requests for a specific team. */
+  async getJoinRequests(userId: string, teamId: string) {
+    const team = await this.teamModel.findById(teamId)
+      .populate('joinRequests', 'first_name last_name display_name email image');
+      
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+
+    const isOwner = team.createdBy.toString() === userId;
+    const isCaptain = team.captain?.toString() === userId;
+    if (!isOwner && !isCaptain) {
+      throw new ForbiddenException('Only the owner or captain can view join requests');
+    }
+
+    return team.joinRequests || [];
+  }
+
+  /** Approve a join request for a team. */
+  async approveJoinRequest(userId: string, teamId: string, requestId: string) {
+    const team = await this.teamModel.findById(teamId);
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+
+    const isOwner = team.createdBy.toString() === userId;
+    const isCaptain = team.captain?.toString() === userId;
+    if (!isOwner && !isCaptain) {
+      throw new ForbiddenException('Only the owner or captain can approve join requests');
+    }
+
+    if (!team.joinRequests || !team.joinRequests.some(r => r.toString() === requestId)) {
+      throw new BadRequestException('Join request not found');
+    }
+
+    if (team.maxMembers && team.members.length >= team.maxMembers) {
+      throw new BadRequestException('Team is at full capacity');
+    }
+
+    // Remove from joinRequests
+    team.joinRequests = team.joinRequests.filter(r => r.toString() !== requestId);
+    
+    // Add to members if not already
+    if (!team.members.some(m => m.toString() === requestId)) {
+      team.members.push(new Types.ObjectId(requestId));
+    }
+    
+    await team.save();
+
+    // Sync team chat participants
+    try {
+      await this.chatModel.updateOne(
+        { referenceId: team._id, type: 'team' },
+        { $addToSet: { participants: new Types.ObjectId(requestId) } },
+      );
+    } catch (error) {
+      console.error('Failed to update team chat members after approval:', error);
+    }
+
+    // Notify the user
+    try {
+      await this.notificationsService.sendAndSave(
+        requestId,
+        'Join Request Approved!',
+        `Your request to join the team "${team.name}" has been approved!`,
+        'TEAM_JOIN_APPROVED',
+        { teamId: team._id.toString() }
+      );
+    } catch (error) {
+      console.error('Failed to send team join approval notification:', error);
+    }
+
+    return {
+      success: true,
+      message: 'Join request approved successfully',
+    };
+  }
+
+  /** Reject a join request for a team. */
+  async rejectJoinRequest(userId: string, teamId: string, requestId: string) {
+    const team = await this.teamModel.findById(teamId);
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+
+    const isOwner = team.createdBy.toString() === userId;
+    const isCaptain = team.captain?.toString() === userId;
+    if (!isOwner && !isCaptain) {
+      throw new ForbiddenException('Only the owner or captain can reject join requests');
+    }
+
+    if (!team.joinRequests || !team.joinRequests.some(r => r.toString() === requestId)) {
+      throw new BadRequestException('Join request not found');
+    }
+
+    // Remove from joinRequests
+    team.joinRequests = team.joinRequests.filter(r => r.toString() !== requestId);
+    await team.save();
+
+    return {
+      success: true,
+      message: 'Join request rejected successfully',
+    };
   }
 }
