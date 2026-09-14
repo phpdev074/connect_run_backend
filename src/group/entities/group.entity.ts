@@ -28,6 +28,9 @@ export class Group {
 
   @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
   members: Types.ObjectId[];
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
+  joinRequests: Types.ObjectId[];
 }
 
 export const GroupSchema = SchemaFactory.createForClass(Group);

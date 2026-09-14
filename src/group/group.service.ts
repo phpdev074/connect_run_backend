@@ -546,4 +546,150 @@ export class GroupService {
 
     return path;
   }
+
+  /**
+   * Request to join a group.
+   */
+  async requestJoinGroup(userId: string, groupId: string) {
+    const group = await this.groupModel.findById(groupId);
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    if (group.members.some((m) => m.toString() === userId)) {
+      throw new BadRequestException('You are already a member of this group');
+    }
+
+    if (group.joinRequests && group.joinRequests.some((r) => r.toString() === userId)) {
+      throw new BadRequestException('You have already requested to join this group');
+    }
+
+    if (!group.joinRequests) {
+      group.joinRequests = [];
+    }
+
+    group.joinRequests.push(new Types.ObjectId(userId));
+    await group.save();
+
+    // Notify the creator
+    try {
+      const requester = await this.userModel.findById(userId);
+      const requesterName = requester?.display_name || requester?.first_name || 'Someone';
+
+      await this.notificationsService.sendAndSave(
+        group.createdBy.toString(),
+        'New Group Join Request!',
+        `${requesterName} requested to join your group "${group.name}".`,
+        'GROUP_JOIN_REQUEST',
+        { groupId: group._id.toString(), requesterId: userId }
+      );
+    } catch (error) {
+      console.error('Failed to send group join request notification:', error);
+    }
+
+    return {
+      success: true,
+      message: 'Join request sent successfully',
+    };
+  }
+
+  /**
+   * Get all join requests for a specific group.
+   */
+  async getJoinRequests(userId: string, groupId: string) {
+    const group = await this.groupModel.findById(groupId)
+      .populate('joinRequests', 'first_name last_name display_name email image');
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    if (group.createdBy.toString() !== userId) {
+      throw new ForbiddenException('Only the creator can view join requests');
+    }
+
+    return group.joinRequests || [];
+  }
+
+  /**
+   * Approve a join request for a group.
+   */
+  async approveJoinRequest(userId: string, groupId: string, requestId: string) {
+    const group = await this.groupModel.findById(groupId);
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    if (group.createdBy.toString() !== userId) {
+      throw new ForbiddenException('Only the creator can approve join requests');
+    }
+
+    if (!group.joinRequests || !group.joinRequests.some(r => r.toString() === requestId)) {
+      throw new BadRequestException('Join request not found');
+    }
+
+    // Remove from joinRequests
+    group.joinRequests = group.joinRequests.filter(r => r.toString() !== requestId);
+
+    // Add to members if not already
+    if (!group.members.some(m => m.toString() === requestId)) {
+      group.members.push(new Types.ObjectId(requestId));
+    }
+
+    await group.save();
+
+    // Sync group chat participants
+    try {
+      await this.chatModel.updateOne(
+        { referenceId: group._id, type: 'group' },
+        { $addToSet: { participants: new Types.ObjectId(requestId) } },
+      );
+    } catch (error) {
+      console.error('Failed to update group chat members after approval:', error);
+    }
+
+    // Notify the user
+    try {
+      await this.notificationsService.sendAndSave(
+        requestId,
+        'Join Request Approved!',
+        `Your request to join the group "${group.name}" has been approved!`,
+        'GROUP_JOIN_APPROVED',
+        { groupId: group._id.toString() }
+      );
+    } catch (error) {
+      console.error('Failed to send group join approval notification:', error);
+    }
+
+    return {
+      success: true,
+      message: 'Join request approved successfully',
+    };
+  }
+
+  /**
+   * Reject a join request for a group.
+   */
+  async rejectJoinRequest(userId: string, groupId: string, requestId: string) {
+    const group = await this.groupModel.findById(groupId);
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    if (group.createdBy.toString() !== userId) {
+      throw new ForbiddenException('Only the creator can reject join requests');
+    }
+
+    if (!group.joinRequests || !group.joinRequests.some(r => r.toString() === requestId)) {
+      throw new BadRequestException('Join request not found');
+    }
+
+    // Remove from joinRequests
+    group.joinRequests = group.joinRequests.filter(r => r.toString() !== requestId);
+    await group.save();
+
+    return {
+      success: true,
+      message: 'Join request rejected successfully',
+    };
+  }
 }
