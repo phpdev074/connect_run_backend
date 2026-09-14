@@ -37,7 +37,9 @@ export class ChatGateway
   handleConnection(client: Socket) {
     const userId = client.handshake.query.userId as string;
     console.log('--------------------------------------------------');
-    console.log(`[SOCKET CONNECT] ID: ${client.id} | User: ${userId || 'Unknown'}`);
+    console.log(
+      `[SOCKET CONNECT] ID: ${client.id} | User: ${userId || 'Unknown'}`,
+    );
     console.log('--------------------------------------------------');
     if (userId) {
       this.userSocketMap.set(userId, client.id);
@@ -49,15 +51,17 @@ export class ChatGateway
         this.server.emit('userStatusChanged', { userId, isOnline: true });
       });
 
-      this.chatService.getMyChats(userId).then(chats => {
-        chats.forEach(chat => {
-          console.log(`[SOCKET JOIN] User ${userId} joining room: ${chat._id.toString()}`);
+      this.chatService.getMyChats(userId).then((chats) => {
+        chats.forEach((chat) => {
+          console.log(
+            `[SOCKET JOIN] User ${userId} joining room: ${chat._id.toString()}`,
+          );
           client.join(chat._id.toString());
         });
 
         client.emit(
           'chatList',
-          chats.map(chat => ({
+          chats.map((chat) => ({
             chatId: chat._id,
             participants: chat.participants,
             lastMessage: chat.lastMessage,
@@ -76,7 +80,9 @@ export class ChatGateway
 
   handleDisconnect(client: Socket) {
     const userId = client.data.userId;
-    console.log(`[SOCKET DISCONNECT] ID: ${client.id} | User: ${userId || 'Unknown'}`);
+    console.log(
+      `[SOCKET DISCONNECT] ID: ${client.id} | User: ${userId || 'Unknown'}`,
+    );
     if (userId) {
       this.userSocketMap.delete(userId);
       this.usersService.updateOnlineStatus(userId, false).then(() => {
@@ -101,7 +107,10 @@ export class ChatGateway
     this.logger.log(`User ${userId} joining direct chat with ${targetId}`);
 
     try {
-      const chat = await this.chatService.getOrCreateDirectChat(userId, targetId);
+      const chat = await this.chatService.getOrCreateDirectChat(
+        userId,
+        targetId,
+      );
       client.join(chat._id.toString());
       client.emit('chatJoined', chat);
       return { status: 'joined', chatId: chat._id, chat };
@@ -175,15 +184,28 @@ export class ChatGateway
     }
   }
 
-
   @SubscribeMessage('joinRoom')
   async handleJoinRoom(
     @MessageBody() data: { chatId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    if (data?.chatId) {
-      client.join(data.chatId);
-      return { status: 'joined', chatId: data.chatId };
+    if (!data?.chatId)
+      return { status: 'error', message: 'chatId is required' };
+
+    const userId =
+      client.data.userId || (client.handshake.query.userId as string);
+    try {
+      // Enforce participant/membership check before allowing room join
+      const chat = await this.chatService.getChat(data.chatId, userId);
+      if (!chat) {
+        return { status: 'error', message: 'Chat not found' };
+      }
+      client.join(chat._id.toString());
+      return { status: 'joined', chatId: chat._id };
+    } catch (error) {
+      this.logger.warn(`JoinRoom Error: ${error.message}`);
+      client.emit('error', { message: error.message });
+      return { status: 'error', message: error.message };
     }
   }
 
@@ -192,12 +214,15 @@ export class ChatGateway
     @MessageBody() data: any,
     @ConnectedSocket() client: Socket,
   ) {
-    const userId = data?.userId || client.data.userId || (client.handshake.query.userId as string);
+    const userId =
+      data?.userId ||
+      client.data.userId ||
+      (client.handshake.query.userId as string);
     this.logger.debug(`User ${userId} getting chat list`);
 
     const chats = await this.chatService.getMyChats(userId);
 
-    const formattedChats = chats.map(chat => {
+    const formattedChats = chats.map((chat) => {
       return {
         chatId: chat._id.toString(),
         participants: chat.participants,
@@ -244,10 +269,16 @@ export class ChatGateway
     @MessageBody() data: any,
     @ConnectedSocket() client: Socket,
   ) {
-    const userId = data.userId || client.data.userId;
-    const messages = await this.chatService.getMessages(data.chatId, userId);
-    client.emit('messages', messages);
-    return { status: 'messages', messages };
+    try {
+      const userId = data.userId || client.data.userId;
+      const messages = await this.chatService.getMessages(data.chatId, userId);
+      client.emit('messages', messages);
+      return { status: 'messages', messages };
+    } catch (error) {
+      this.logger.warn(`GetChatMessages Error: ${error.message}`);
+      client.emit('error', { message: error.message });
+      return { status: 'error', message: error.message };
+    }
   }
 
   @SubscribeMessage('getMatches')
@@ -257,9 +288,9 @@ export class ChatGateway
   ) {
     const userId = data.userId || client.data.userId;
     const matches = await this.chatService.getUserMatches(userId);
-    return matches.map(match => ({
+    return matches.map((match) => ({
       matchId: match._id,
-      users: match.users.map(u => ({
+      users: match.users.map((u) => ({
         _id: u._id,
         first_name: u.first_name,
         last_name: u.last_name,

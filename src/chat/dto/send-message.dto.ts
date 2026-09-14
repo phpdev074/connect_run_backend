@@ -7,7 +7,10 @@ export class SendMessageDto {
   @IsNotEmpty()
   content: string;
 
-  @ApiProperty({ example: 'text', enum: ['text', 'image', 'invite', 'system', 'video'] })
+  @ApiProperty({
+    example: 'text',
+    enum: ['text', 'image', 'invite', 'system', 'video'],
+  })
   @IsEnum(['text', 'image', 'invite', 'system', 'video'])
   @IsOptional()
   type?: string = 'text';

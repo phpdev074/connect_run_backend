@@ -11,7 +11,13 @@ import {
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth, ApiOperation, ApiTags, ApiBody, ApiParam } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiTags,
+  ApiBody,
+  ApiParam,
+} from '@nestjs/swagger';
 import { SendMessageDto } from './dto/send-message.dto';
 import { CreateChatDto } from './dto/create-chat.dto';
 import { UpdateChatDto } from './dto/update-chat.dto';
@@ -52,7 +58,9 @@ export class ChatController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get list of my active chats (direct, groups, and teams)' })
+  @ApiOperation({
+    summary: 'Get list of my active chats (direct, groups, and teams)',
+  })
   async getMyChats(@Req() req) {
     const data = await this.chatService.getMyChats(req.user.id);
     return {
@@ -67,7 +75,10 @@ export class ChatController {
   @ApiOperation({ summary: 'Get or start a group chat by Group ID' })
   @ApiParam({ name: 'groupId', description: 'ID of the group' })
   async getGroupChat(@Req() req, @Param('groupId') groupId: string) {
-    const data = await this.chatService.getOrCreateGroupChat(groupId, req.user.id);
+    const data = await this.chatService.getOrCreateGroupChat(
+      groupId,
+      req.user.id,
+    );
     return {
       statusCode: HttpStatus.OK,
       success: true,
@@ -80,7 +91,10 @@ export class ChatController {
   @ApiOperation({ summary: 'Start or get a group chat by Group ID' })
   @ApiParam({ name: 'groupId', description: 'ID of the group' })
   async startGroupChat(@Req() req, @Param('groupId') groupId: string) {
-    const data = await this.chatService.getOrCreateGroupChat(groupId, req.user.id);
+    const data = await this.chatService.getOrCreateGroupChat(
+      groupId,
+      req.user.id,
+    );
     return {
       statusCode: HttpStatus.CREATED,
       success: true,
@@ -93,7 +107,10 @@ export class ChatController {
   @ApiOperation({ summary: 'Get or start a team chat by Team ID' })
   @ApiParam({ name: 'teamId', description: 'ID of the team' })
   async getTeamChat(@Req() req, @Param('teamId') teamId: string) {
-    const data = await this.chatService.getOrCreateTeamChat(teamId, req.user.id);
+    const data = await this.chatService.getOrCreateTeamChat(
+      teamId,
+      req.user.id,
+    );
     return {
       statusCode: HttpStatus.OK,
       success: true,
@@ -106,7 +123,10 @@ export class ChatController {
   @ApiOperation({ summary: 'Start or get a team chat by Team ID' })
   @ApiParam({ name: 'teamId', description: 'ID of the team' })
   async startTeamChat(@Req() req, @Param('teamId') teamId: string) {
-    const data = await this.chatService.getOrCreateTeamChat(teamId, req.user.id);
+    const data = await this.chatService.getOrCreateTeamChat(
+      teamId,
+      req.user.id,
+    );
     return {
       statusCode: HttpStatus.CREATED,
       success: true,
@@ -119,7 +139,10 @@ export class ChatController {
   @ApiOperation({ summary: 'Get or start a race chat by Race ID' })
   @ApiParam({ name: 'raceId', description: 'ID of the race' })
   async getRaceChat(@Req() req, @Param('raceId') raceId: string) {
-    const data = await this.chatService.getOrCreateRaceChat(raceId, req.user.id);
+    const data = await this.chatService.getOrCreateRaceChat(
+      raceId,
+      req.user.id,
+    );
     return {
       statusCode: HttpStatus.OK,
       success: true,
@@ -132,7 +155,10 @@ export class ChatController {
   @ApiOperation({ summary: 'Start or get a race chat by Race ID' })
   @ApiParam({ name: 'raceId', description: 'ID of the race' })
   async startRaceChat(@Req() req, @Param('raceId') raceId: string) {
-    const data = await this.chatService.getOrCreateRaceChat(raceId, req.user.id);
+    const data = await this.chatService.getOrCreateRaceChat(
+      raceId,
+      req.user.id,
+    );
     return {
       statusCode: HttpStatus.CREATED,
       success: true,
@@ -142,10 +168,18 @@ export class ChatController {
   }
 
   @Get('direct/:targetUserId')
-  @ApiOperation({ summary: 'Get or start an individual chat with target user ID' })
-  @ApiParam({ name: 'targetUserId', description: 'ID of the matched target user' })
+  @ApiOperation({
+    summary: 'Get or start an individual chat with target user ID',
+  })
+  @ApiParam({
+    name: 'targetUserId',
+    description: 'ID of the matched target user',
+  })
   async getDirectChat(@Req() req, @Param('targetUserId') targetUserId: string) {
-    const data = await this.chatService.getOrCreateDirectChat(req.user.id, targetUserId);
+    const data = await this.chatService.getOrCreateDirectChat(
+      req.user.id,
+      targetUserId,
+    );
     return {
       statusCode: HttpStatus.OK,
       success: true,
@@ -155,10 +189,21 @@ export class ChatController {
   }
 
   @Post('direct/:targetUserId')
-  @ApiOperation({ summary: 'Start or get an individual chat with target user ID' })
-  @ApiParam({ name: 'targetUserId', description: 'ID of the matched target user' })
-  async startDirectChat(@Req() req, @Param('targetUserId') targetUserId: string) {
-    const data = await this.chatService.getOrCreateDirectChat(req.user.id, targetUserId);
+  @ApiOperation({
+    summary: 'Start or get an individual chat with target user ID',
+  })
+  @ApiParam({
+    name: 'targetUserId',
+    description: 'ID of the matched target user',
+  })
+  async startDirectChat(
+    @Req() req,
+    @Param('targetUserId') targetUserId: string,
+  ) {
+    const data = await this.chatService.getOrCreateDirectChat(
+      req.user.id,
+      targetUserId,
+    );
     return {
       statusCode: HttpStatus.CREATED,
       success: true,
@@ -194,8 +239,12 @@ export class ChatController {
   @Patch(':id')
   @ApiOperation({ summary: 'Update chat status (lock/unlock, expiration)' })
   @ApiBody({ type: UpdateChatDto })
-  async updateChat(@Param('id') id: string, @Body() body: UpdateChatDto) {
-    const data = await this.chatService.update(id, body);
+  async updateChat(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() body: UpdateChatDto,
+  ) {
+    const data = await this.chatService.update(id, req.user.id, body);
     return {
       statusCode: HttpStatus.OK,
       success: true,

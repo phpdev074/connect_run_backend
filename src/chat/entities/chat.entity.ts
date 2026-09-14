@@ -29,7 +29,10 @@ export class Chat {
   @Prop()
   groupImage?: string;
 
-  @Prop({ default: 'direct', enum: ['direct', 'group', 'team', 'race', 'community', 'pace'] })
+  @Prop({
+    default: 'direct',
+    enum: ['direct', 'group', 'team', 'race', 'community', 'pace'],
+  })
   type: string;
 
   @Prop({ type: Types.ObjectId, default: null, index: true })
@@ -38,4 +41,3 @@ export class Chat {
 
 export const ChatSchema = SchemaFactory.createForClass(Chat);
 ChatSchema.index({ referenceId: 1, type: 1 });
-

@@ -59,8 +59,8 @@ export class ChatService {
   async canUsersChat(userId: string, targetId: string): Promise<boolean> {
     // Check if users are matched
     const matches = await this.matchesService.getMatches(userId);
-    return matches.some(match =>
-      match.users.some(u => u._id.toString() === targetId),
+    return matches.some((match) =>
+      match.users.some((u) => u._id.toString() === targetId),
     );
   }
 
@@ -80,7 +80,10 @@ export class ChatService {
       throw new ForbiddenException('You can only chat with matched users');
     }
 
-    const objectIds = [new Types.ObjectId(userId), new Types.ObjectId(targetUserId)];
+    const objectIds = [
+      new Types.ObjectId(userId),
+      new Types.ObjectId(targetUserId),
+    ];
     let chat = await this.chatModel.findOne({
       participants: { $all: objectIds, $size: 2 },
       type: { $in: [null, 'direct'] },
@@ -116,7 +119,7 @@ export class ChatService {
     }
 
     const isMember =
-      group.members?.some(m => m.toString() === userId) ||
+      group.members?.some((m) => m.toString() === userId) ||
       group.createdBy?.toString() === userId;
 
     if (!isMember) {
@@ -128,10 +131,10 @@ export class ChatService {
       new Set(
         [
           group.createdBy?.toString(),
-          ...(group.members || []).map(m => m.toString()),
+          ...(group.members || []).map((m) => m.toString()),
         ].filter(Boolean),
       ),
-    ).map(id => new Types.ObjectId(id));
+    ).map((id) => new Types.ObjectId(id));
 
     let chat = await this.chatModel.findOne({
       referenceId: groupObjectId,
@@ -150,9 +153,11 @@ export class ChatService {
       });
     } else {
       // Sync members and group details if needed
-      const currentParticipants = (chat.participants || []).map(p => p.toString());
+      const currentParticipants = (chat.participants || []).map((p) =>
+        p.toString(),
+      );
       const needsMemberSync = memberIds.some(
-        m => !currentParticipants.includes(m.toString()),
+        (m) => !currentParticipants.includes(m.toString()),
       );
       const needsUpdate =
         needsMemberSync ||
@@ -190,7 +195,7 @@ export class ChatService {
     }
 
     const isMember =
-      team.members?.some(m => m.toString() === userId) ||
+      team.members?.some((m) => m.toString() === userId) ||
       team.createdBy?.toString() === userId ||
       team.captain?.toString() === userId;
 
@@ -204,10 +209,10 @@ export class ChatService {
         [
           team.createdBy?.toString(),
           team.captain?.toString(),
-          ...(team.members || []).map(m => m.toString()),
+          ...(team.members || []).map((m) => m.toString()),
         ].filter(Boolean),
       ),
-    ).map(id => new Types.ObjectId(id));
+    ).map((id) => new Types.ObjectId(id));
 
     let chat = await this.chatModel.findOne({
       referenceId: teamObjectId,
@@ -226,9 +231,11 @@ export class ChatService {
       });
     } else {
       // Sync members and team details if needed
-      const currentParticipants = (chat.participants || []).map(p => p.toString());
+      const currentParticipants = (chat.participants || []).map((p) =>
+        p.toString(),
+      );
       const needsMemberSync = memberIds.some(
-        m => !currentParticipants.includes(m.toString()),
+        (m) => !currentParticipants.includes(m.toString()),
       );
       const needsUpdate =
         needsMemberSync ||
@@ -266,7 +273,7 @@ export class ChatService {
     }
 
     const isParticipant =
-      race.participants?.some(p => p.toString() === userId) ||
+      race.participants?.some((p) => p.toString() === userId) ||
       race.userId?.toString() === userId;
 
     if (!isParticipant) {
@@ -278,10 +285,10 @@ export class ChatService {
       new Set(
         [
           race.userId?.toString(),
-          ...(race.participants || []).map(p => p.toString()),
+          ...(race.participants || []).map((p) => p.toString()),
         ].filter(Boolean),
       ),
-    ).map(id => new Types.ObjectId(id));
+    ).map((id) => new Types.ObjectId(id));
 
     let chat = await this.chatModel.findOne({
       referenceId: raceObjectId,
@@ -300,9 +307,11 @@ export class ChatService {
       });
     } else {
       // Sync participants and race details if needed
-      const currentParticipants = (chat.participants || []).map(p => p.toString());
+      const currentParticipants = (chat.participants || []).map((p) =>
+        p.toString(),
+      );
       const needsMemberSync = memberIds.some(
-        m => !currentParticipants.includes(m.toString()),
+        (m) => !currentParticipants.includes(m.toString()),
       );
       const needsUpdate =
         needsMemberSync ||
@@ -347,7 +356,8 @@ export class ChatService {
     }
 
     // Check if group chat requested via groupId or type === 'group'
-    const finalGroupId = groupId || (type === 'group' ? referenceId : undefined);
+    const finalGroupId =
+      groupId || (type === 'group' ? referenceId : undefined);
     if (finalGroupId) {
       return this.getOrCreateGroupChat(finalGroupId, creatorId);
     }
@@ -366,7 +376,8 @@ export class ChatService {
     // Fallback to participantIds
     const participants = participantIds || [];
     if (participants.length === 2 && (!type || type === 'direct')) {
-      const targetId = participants.find(id => id !== creatorId) || participants[1];
+      const targetId =
+        participants.find((id) => id !== creatorId) || participants[1];
       return this.getOrCreateDirectChat(creatorId, targetId);
     }
 
@@ -383,7 +394,7 @@ export class ChatService {
     }
 
     const allParticipantIds = Array.from(new Set([creatorId, ...participants]));
-    const objectIds = allParticipantIds.map(id => new Types.ObjectId(id));
+    const objectIds = allParticipantIds.map((id) => new Types.ObjectId(id));
 
     const chat = await this.chatModel.create({
       participants: objectIds,
@@ -401,87 +412,71 @@ export class ChatService {
     );
   }
 
-  async getChat(chatId: string, userId: string) {
-    if (!Types.ObjectId.isValid(chatId)) {
-      throw new NotFoundException('Chat not found');
-    }
-    const chat = await this.chatModel
-      .findById(chatId)
-      .populate(
-        'participants',
-        'first_name last_name display_name image profile_galary isOnline lastSeen',
-      );
-    if (!chat) throw new NotFoundException('Chat not found');
-
-    const isParticipant = chat.participants.some(
-      p => p['_id'].toString() === userId,
-    );
-    if (!isParticipant) {
-      // Self-heal: check if this is a group, team, or race chat and user is a member
-      if (chat.type === 'group' && chat.referenceId) {
-        const group = await this.groupModel.findById(chat.referenceId);
-        if (
-          group &&
-          (group.members?.some(m => m.toString() === userId) ||
-            group.createdBy?.toString() === userId)
-        ) {
-          await this.chatModel.findByIdAndUpdate(chatId, {
-            $addToSet: { participants: new Types.ObjectId(userId) },
-          });
-          return this.chatModel
-            .findById(chatId)
-            .populate(
-              'participants',
-              'first_name last_name display_name image profile_galary isOnline lastSeen',
-            );
-        }
-      } else if (chat.type === 'team' && chat.referenceId) {
-        const team = await this.teamModel.findById(chat.referenceId);
-        if (
-          team &&
-          (team.members?.some(m => m.toString() === userId) ||
-            team.createdBy?.toString() === userId ||
-            team.captain?.toString() === userId)
-        ) {
-          await this.chatModel.findByIdAndUpdate(chatId, {
-            $addToSet: { participants: new Types.ObjectId(userId) },
-          });
-          return this.chatModel
-            .findById(chatId)
-            .populate(
-              'participants',
-              'first_name last_name display_name image profile_galary isOnline lastSeen',
-            );
-        }
-      } else if (chat.type === 'race' && chat.referenceId) {
-        const race = await this.raceModel.findById(chat.referenceId);
-        if (
-          race &&
-          (race.participants?.some(p => p.toString() === userId) ||
-            race.userId?.toString() === userId)
-        ) {
-          await this.chatModel.findByIdAndUpdate(chatId, {
-            $addToSet: { participants: new Types.ObjectId(userId) },
-          });
-          return this.chatModel
-            .findById(chatId)
-            .populate(
-              'participants',
-              'first_name last_name display_name image profile_galary isOnline lastSeen',
-            );
-        }
-      }
-      throw new ForbiddenException('You are not a participant in this chat');
-    }
-    return chat;
-  }
-
-  async getMessages(chatId: string, userId: string) {
+  /**
+   * Shared access check: verifies the user is a participant of the chat.
+   * Self-heals group/team/race chats by re-checking the source entity
+   * membership and auto-adding the user to participants if they belong.
+   * Throws NotFoundException / ForbiddenException.
+   */
+  private async ensureChatAccess(chatId: string, userId: string) {
     if (!Types.ObjectId.isValid(chatId)) {
       throw new NotFoundException('Chat not found');
     }
     const chat = await this.chatModel.findById(chatId);
     if (!chat) throw new NotFoundException('Chat not found');
+
+    const isParticipant = chat.participants.some(
+      (p) => p.toString() === userId,
+    );
+    if (isParticipant) return chat;
+
+    let isMember = false;
+
+    if (chat.type === 'group' && chat.referenceId) {
+      const group = await this.groupModel.findById(chat.referenceId);
+      isMember =
+        !!group &&
+        (group.members?.some((m) => m.toString() === userId) ||
+          group.createdBy?.toString() === userId);
+    } else if (chat.type === 'team' && chat.referenceId) {
+      const team = await this.teamModel.findById(chat.referenceId);
+      isMember =
+        !!team &&
+        (team.members?.some((m) => m.toString() === userId) ||
+          team.createdBy?.toString() === userId ||
+          team.captain?.toString() === userId);
+    } else if (chat.type === 'race' && chat.referenceId) {
+      const race = await this.raceModel.findById(chat.referenceId);
+      isMember =
+        !!race &&
+        (race.participants?.some((p) => p.toString() === userId) ||
+          race.userId?.toString() === userId);
+    }
+
+    if (isMember) {
+      await this.chatModel.findByIdAndUpdate(chatId, {
+        $addToSet: { participants: new Types.ObjectId(userId) },
+      });
+      chat.participants.push(new Types.ObjectId(userId));
+      return chat;
+    }
+
+    throw new ForbiddenException('You are not a participant in this chat');
+  }
+
+  async getChat(chatId: string, userId: string) {
+    await this.ensureChatAccess(chatId, userId);
+
+    return this.chatModel
+      .findById(chatId)
+      .populate(
+        'participants',
+        'first_name last_name display_name image profile_galary isOnline lastSeen',
+      );
+  }
+
+  async getMessages(chatId: string, userId: string) {
+    await this.ensureChatAccess(chatId, userId);
 
     return this.messageModel
       .find({
@@ -500,61 +495,7 @@ export class ChatService {
     type: string = 'text',
     metadata?: any,
   ) {
-    if (!Types.ObjectId.isValid(chatId)) {
-      throw new NotFoundException('Chat not found');
-    }
-    const chat = await this.chatModel.findById(chatId);
-
-    if (!chat) throw new NotFoundException('Chat not found');
-
-    let isParticipant = chat.participants.some(p => p.toString() === userId);
-    if (!isParticipant) {
-      if (chat.type === 'group' && chat.referenceId) {
-        const group = await this.groupModel.findById(chat.referenceId);
-        if (
-          group &&
-          (group.members?.some(m => m.toString() === userId) ||
-            group.createdBy?.toString() === userId)
-        ) {
-          await this.chatModel.findByIdAndUpdate(chatId, {
-            $addToSet: { participants: new Types.ObjectId(userId) },
-          });
-          chat.participants.push(new Types.ObjectId(userId));
-          isParticipant = true;
-        }
-      } else if (chat.type === 'team' && chat.referenceId) {
-        const team = await this.teamModel.findById(chat.referenceId);
-        if (
-          team &&
-          (team.members?.some(m => m.toString() === userId) ||
-            team.createdBy?.toString() === userId ||
-            team.captain?.toString() === userId)
-        ) {
-          await this.chatModel.findByIdAndUpdate(chatId, {
-            $addToSet: { participants: new Types.ObjectId(userId) },
-          });
-          chat.participants.push(new Types.ObjectId(userId));
-          isParticipant = true;
-        }
-      } else if (chat.type === 'race' && chat.referenceId) {
-        const race = await this.raceModel.findById(chat.referenceId);
-        if (
-          race &&
-          (race.participants?.some(p => p.toString() === userId) ||
-            race.userId?.toString() === userId)
-        ) {
-          await this.chatModel.findByIdAndUpdate(chatId, {
-            $addToSet: { participants: new Types.ObjectId(userId) },
-          });
-          chat.participants.push(new Types.ObjectId(userId));
-          isParticipant = true;
-        }
-      }
-    }
-
-    if (!isParticipant) {
-      throw new ForbiddenException('You are not a participant in this chat');
-    }
+    const chat = await this.ensureChatAccess(chatId, userId);
 
     const message = await this.messageModel.create({
       chatId: new Types.ObjectId(chatId),
@@ -578,7 +519,10 @@ export class ChatService {
       { new: true },
     );
 
-    await message.populate('senderId', 'first_name last_name display_name image');
+    await message.populate(
+      'senderId',
+      'first_name last_name display_name image',
+    );
 
     console.log('🚀 ~ ChatService ~ sendMessage ~ data:', data);
     console.log('\n--------------------------------------------------');
@@ -588,11 +532,14 @@ export class ChatService {
     console.log('--------------------------------------------------\n');
 
     // Send push notification to all other participants
-    const recipientIds = chat.participants.filter(p => p.toString() !== userId);
+    const recipientIds = chat.participants.filter(
+      (p) => p.toString() !== userId,
+    );
 
     try {
       const sender = await this.userService.findById(userId);
-      const senderName = sender?.display_name || sender?.first_name || 'Someone';
+      const senderName =
+        sender?.display_name || sender?.first_name || 'Someone';
 
       let notifTitle = `New message from ${senderName}`;
       if (chat.type === 'group') {
@@ -651,10 +598,10 @@ export class ChatService {
           new Set(
             [
               group.createdBy?.toString(),
-              ...(group.members || []).map(m => m.toString()),
+              ...(group.members || []).map((m) => m.toString()),
             ].filter(Boolean),
           ),
-        ).map(id => new Types.ObjectId(id));
+        ).map((id) => new Types.ObjectId(id));
 
         await this.chatModel.updateOne(
           { referenceId: group._id, type: 'group' },
@@ -679,10 +626,10 @@ export class ChatService {
             [
               team.createdBy?.toString(),
               team.captain?.toString(),
-              ...(team.members || []).map(m => m.toString()),
+              ...(team.members || []).map((m) => m.toString()),
             ].filter(Boolean),
           ),
-        ).map(id => new Types.ObjectId(id));
+        ).map((id) => new Types.ObjectId(id));
 
         await this.chatModel.updateOne(
           { referenceId: team._id, type: 'team' },
@@ -706,10 +653,10 @@ export class ChatService {
           new Set(
             [
               race.userId?.toString(),
-              ...(race.participants || []).map(m => m.toString()),
+              ...(race.participants || []).map((m) => m.toString()),
             ].filter(Boolean),
           ),
-        ).map(id => new Types.ObjectId(id));
+        ).map((id) => new Types.ObjectId(id));
 
         await this.chatModel.updateOne(
           { referenceId: race._id, type: 'race' },
@@ -748,7 +695,9 @@ export class ChatService {
                   $and: [
                     { $eq: ['$chatId', '$$chatId'] },
                     { $ne: ['$senderId', '$$userId'] },
-                    { $not: { $in: ['$$userId', { $ifNull: ['$readBy', []] }] } },
+                    {
+                      $not: { $in: ['$$userId', { $ifNull: ['$readBy', []] }] },
+                    },
                     { $ne: ['$isDeleted', true] },
                     {
                       $not: {
@@ -866,12 +815,12 @@ export class ChatService {
     ]);
   }
 
-  async update(chatId: string, updateDto: any) {
-    const chat = await this.chatModel.findByIdAndUpdate(chatId, updateDto, {
+  async update(chatId: string, userId: string, updateDto: any) {
+    await this.ensureChatAccess(chatId, userId);
+
+    return this.chatModel.findByIdAndUpdate(chatId, updateDto, {
       new: true,
     });
-    if (!chat) throw new NotFoundException('Chat not found');
-    return chat;
   }
 
   async unlockChat(chatId: string) {
@@ -907,7 +856,7 @@ export class ChatService {
     messageIds: string[],
     mode: 'me' | 'everyone' = 'everyone',
   ) {
-    const objectIds = messageIds.map(id => new Types.ObjectId(id));
+    const objectIds = messageIds.map((id) => new Types.ObjectId(id));
 
     if (mode === 'everyone') {
       const result = await this.messageModel.updateMany(
