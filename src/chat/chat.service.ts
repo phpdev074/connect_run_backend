@@ -556,13 +556,20 @@ export class ChatService {
         notifTitle = `${senderName} in ${chat.groupName || 'Race'}`;
       }
 
+      const notifData = {
+        chatId: resolvedChatId,
+        messageId: message._id.toString(),
+        senderId: userId,
+        chatType: chat.type || 'direct',
+      };
+
       for (const recipientId of recipientIds) {
         await this.notificationsService.sendNotification(
           recipientId.toString(),
           notifTitle,
           notificationBody,
           'CHAT_MESSAGE',
-          JSON.stringify(data),
+          notifData,
         );
       }
     } catch (error) {
