@@ -63,6 +63,8 @@ export class ChatGateway
           'chatList',
           chats.map((chat) => ({
             chatId: chat._id,
+            entityId: chat.entityId ? chat.entityId.toString() : null,
+            type: chat.type,
             participants: chat.participants,
             lastMessage: chat.lastMessage,
             lastActivity: chat.lastActivity,
@@ -70,7 +72,6 @@ export class ChatGateway
             unreadCount: chat.unreadCount,
             groupName: chat.groupName,
             groupImage: chat.groupImage,
-            type: chat.type,
             referenceId: chat.referenceId,
           })),
         );
@@ -225,6 +226,10 @@ export class ChatGateway
     const formattedChats = chats.map((chat) => {
       return {
         chatId: chat._id.toString(),
+        // entityId: the id the frontend navigates with — the OTHER user's id for
+        // 1-on-1 chats, the group/team/race id for group chats
+        entityId: chat.entityId ? chat.entityId.toString() : null,
+        type: chat.type,
         participants: chat.participants,
         lastMessage: chat.lastMessage || '',
         lastActivity: chat.lastActivity,
@@ -232,7 +237,6 @@ export class ChatGateway
         unreadCount: chat.unreadCount,
         groupName: chat.groupName,
         groupImage: chat.groupImage,
-        type: chat.type,
         referenceId: chat.referenceId,
       };
     });
@@ -261,8 +265,13 @@ export class ChatGateway
         data.type,
         data.metadata,
       );
-      this.server.to(chatId).emit('newMessage', message);
-      this.logger.debug(`Broadcasted newMessage to room: ${chatId}`);
+      // sendMessage resolves ANY id (chat _id, other user's id, group/team/race
+      // id) to the canonical chat _id — broadcast to that room
+      const resolvedChatId = message.chatId.toString();
+      this.server.to(resolvedChatId).emit('newMessage', message);
+      this.logger.debug(
+        `Broadcasted newMessage to room: ${resolvedChatId} (requested: ${chatId})`,
+      );
       return message;
     } catch (error) {
       this.logger.warn(
@@ -328,9 +337,14 @@ export class ChatGateway
   ) {
     try {
       const userId = data.userId || client.data.userId;
-      await this.chatService.markAsRead(userId, data.chatId);
-      this.server.to(data.chatId).emit('messagesRead', {
-        chatId: data.chatId,
+      // Resolve ANY id (chat _id, other user's id, group/team/race id)
+      const resolvedChatId = await this.chatService.resolveChatId(
+        data.chatId,
+        userId,
+      );
+      await this.chatService.markAsRead(userId, resolvedChatId);
+      this.server.to(resolvedChatId).emit('messagesRead', {
+        chatId: resolvedChatId,
         userId: userId,
       });
     } catch (error) {

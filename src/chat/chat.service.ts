@@ -413,18 +413,21 @@ export class ChatService {
   }
 
   /**
-   * Shared access check: verifies the user is a participant of the chat.
-   * Self-heals group/team/race chats by re-checking the source entity
-   * membership and auto-adding the user to participants if they belong.
+   * Shared access check: resolves the chat from ANY identifier (chat _id,
+   * the other user's userId for 1-on-1, or a group/team/race id — see
+   * resolveChatId), then verifies the user is a participant. Self-heals
+   * group/team/race chats by re-checking the source entity membership and
+   * auto-adding the user to participants if they belong.
    * Throws NotFoundException / ForbiddenException.
    */
-  private async ensureChatAccess(chatId: string, userId: string) {
-    if (!Types.ObjectId.isValid(chatId)) {
-      throw new BadRequestException(`Invalid chat ID format: "${chatId}"`);
-    }
-    const chat = await this.chatModel.findById(chatId);
+  private async ensureChatAccess(
+    chatIdOrEntityId: string,
+    userId: string,
+  ): Promise<ChatDocument> {
+    const resolvedId = await this.resolveChatId(chatIdOrEntityId, userId);
+    const chat = await this.chatModel.findById(resolvedId);
     if (!chat) {
-      throw new NotFoundException(`Chat not found for chatId: "${chatId}"`);
+      throw new NotFoundException(`Chat not found for id: "${chatIdOrEntityId}"`);
     }
 
     const isParticipant = chat.participants.some(
@@ -456,7 +459,7 @@ export class ChatService {
     }
 
     if (isMember) {
-      await this.chatModel.findByIdAndUpdate(chatId, {
+      await this.chatModel.findByIdAndUpdate(chat._id, {
         $addToSet: { participants: new Types.ObjectId(userId) },
       });
       chat.participants.push(new Types.ObjectId(userId));
@@ -467,10 +470,10 @@ export class ChatService {
   }
 
   async getChat(chatId: string, userId: string) {
-    await this.ensureChatAccess(chatId, userId);
+    const chat = await this.ensureChatAccess(chatId, userId);
 
     return this.chatModel
-      .findById(chatId)
+      .findById(chat._id)
       .populate(
         'participants',
         'first_name last_name display_name image profile_galary isOnline lastSeen',
@@ -478,11 +481,11 @@ export class ChatService {
   }
 
   async getMessages(chatId: string, userId: string) {
-    await this.ensureChatAccess(chatId, userId);
+    const chat = await this.ensureChatAccess(chatId, userId);
 
     return this.messageModel
       .find({
-        chatId: new Types.ObjectId(chatId),
+        chatId: chat._id,
         isDeleted: { $ne: true },
         deletedFor: { $ne: new Types.ObjectId(userId) },
       })
@@ -498,9 +501,10 @@ export class ChatService {
     metadata?: any,
   ) {
     const chat = await this.ensureChatAccess(chatId, userId);
+    const resolvedChatId = chat._id.toString();
 
     const message = await this.messageModel.create({
-      chatId: new Types.ObjectId(chatId),
+      chatId: chat._id,
       senderId: new Types.ObjectId(userId),
       content,
       type,
@@ -513,7 +517,7 @@ export class ChatService {
     else if (type === 'video') notificationBody = '🎥 Video';
 
     const data = await this.chatModel.findByIdAndUpdate(
-      chatId,
+      resolvedChatId,
       {
         lastMessage: notificationBody,
         lastActivity: new Date(),
@@ -813,14 +817,50 @@ export class ChatService {
           },
         },
       },
+      {
+        $addFields: {
+          // Frontend-facing entity id: for 1-on-1 chats → the OTHER user's id,
+          // for group/team/race chats → the group/team/race id (referenceId).
+          entityId: {
+            $cond: {
+              if: {
+                $and: [
+                  { $eq: [{ $ifNull: ['$type', 'direct'] }, 'direct'] },
+                  { $eq: [{ $size: '$participants' }, 2] },
+                ],
+              },
+              then: {
+                $let: {
+                  vars: {
+                    others: {
+                      $filter: {
+                        input: '$participants',
+                        as: 'p',
+                        cond: { $ne: ['$$p._id', userObjectId] },
+                      },
+                    },
+                  },
+                  in: {
+                    $let: {
+                      vars: { other: { $arrayElemAt: ['$$others', 0] } },
+                      in: { $ifNull: ['$$other._id', null] },
+                    },
+                  },
+                },
+              },
+              else: { $ifNull: ['$referenceId', null] },
+            },
+          },
+        },
+      },
       { $sort: { lastActivity: -1 } },
     ]);
   }
 
   async update(chatId: string, userId: string, updateDto: any) {
-    await this.ensureChatAccess(chatId, userId);
+    const chat = await this.ensureChatAccess(chatId, userId);
 
-    return this.chatModel.findByIdAndUpdate(chatId, updateDto, {
+    return this.chatModel.findByIdAndUpdate(chat._id, updateDto, {
       new: true,
     });
   }
@@ -842,15 +882,82 @@ export class ChatService {
   }
 
   async markAsRead(userId: string, chatId: string) {
+    const resolvedChatId = await this.resolveChatId(chatId, userId);
     await this.messageModel.updateMany(
       {
-        chatId: new Types.ObjectId(chatId),
+        chatId: new Types.ObjectId(resolvedChatId),
         senderId: { $ne: new Types.ObjectId(userId) },
         readBy: { $ne: new Types.ObjectId(userId) },
       },
       { $addToSet: { readBy: new Types.ObjectId(userId) } },
     );
     return { status: 'success' };
+  }
+
+  /**
+   * Universal chat resolver — accepts ANY identifier the frontend has:
+   *   1. a chat _id (the canonical room id)
+   *   2. the OTHER USER's userId → resolves/creates the 1-on-1 direct chat
+   *   3. a group/team/race referenceId (existing chat) → resolves to that chat
+   *   4. a group/team/race _id with no chat yet → creates the chat (membership enforced)
+   * Returns the canonical chat _id as a string.
+   * Throws NotFoundException if nothing matches.
+   */
+  async resolveChatId(id: string, userId?: string): Promise<string> {
+    if (!id || !Types.ObjectId.isValid(id)) {
+      throw new BadRequestException(`Invalid chat ID format: "${id}"`);
+    }
+    const chat = await this.chatModel.findById(id).select('_id').lean();
+    if (chat) return chat._id.toString();
+
+    if (userId) {
+      // The id may be the OTHER USER's userId → direct 1-on-1 chat
+      const user = await this.userService.findById(id);
+      if (user) {
+        const created = (await this.getOrCreateDirectChat(
+          userId,
+          id,
+        )) as ChatDocument;
+        return created._id.toString();
+      }
+
+      // The id may be a group/team/race with no chat document yet
+      const [group, team, race] = await Promise.all([
+        this.groupModel.findById(id).select('_id').lean(),
+        this.teamModel.findById(id).select('_id').lean(),
+        this.raceModel.findById(id).select('_id').lean(),
+      ]);
+      if (group) {
+        const created = (await this.getOrCreateGroupChat(
+          id,
+          userId,
+        )) as ChatDocument;
+        return created._id.toString();
+      }
+      if (team) {
+        const created = (await this.getOrCreateTeamChat(
+          id,
+          userId,
+        )) as ChatDocument;
+        return created._id.toString();
+      }
+      if (race) {
+        const created = (await this.getOrCreateRaceChat(
+          id,
+          userId,
+        )) as ChatDocument;
+        return created._id.toString();
+      }
+    }
+
+    // The id may be a group/team/race referenceId with an existing chat
+    const referenced = await this.chatModel
+      .findOne({ referenceId: new Types.ObjectId(id) })
+      .select('_id')
+      .lean();
+    if (referenced) return referenced._id.toString();
+
+    throw new NotFoundException(`Chat not found for id: "${id}"`);
   }
 
   async deleteMessages(
