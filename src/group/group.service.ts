@@ -548,7 +548,7 @@ export class GroupService {
   }
 
   /**
-   * Request to join a group.
+   * Request to join a group or direct join if public.
    */
   async requestJoinGroup(userId: string, groupId: string) {
     const group = await this.groupModel.findById(groupId);
@@ -560,6 +560,40 @@ export class GroupService {
       throw new BadRequestException('You are already a member of this group');
     }
 
+    if (group.maxMembers && group.members.length >= group.maxMembers) {
+      throw new BadRequestException('Group is at full capacity');
+    }
+
+    const visibility = (group.visibility || 'public').toLowerCase();
+
+    // If public visibility, directly add member
+    if (visibility === 'public') {
+      group.members.push(new Types.ObjectId(userId));
+
+      if (group.joinRequests) {
+        group.joinRequests = group.joinRequests.filter((r) => r.toString() !== userId);
+      }
+
+      await group.save();
+
+      // Sync group chat participants
+      try {
+        await this.chatModel.updateOne(
+          { referenceId: group._id, type: 'group' },
+          { $addToSet: { participants: new Types.ObjectId(userId) } },
+        );
+      } catch (error) {
+        console.error('Failed to update group chat members after join:', error);
+      }
+
+      return {
+        success: true,
+        message: 'Joined group successfully',
+        joined: true,
+      };
+    }
+
+    // If private visibility, send join request
     if (group.joinRequests && group.joinRequests.some((r) => r.toString() === userId)) {
       throw new BadRequestException('You have already requested to join this group');
     }
@@ -590,6 +624,7 @@ export class GroupService {
     return {
       success: true,
       message: 'Join request sent successfully',
+      joined: false,
     };
   }
 

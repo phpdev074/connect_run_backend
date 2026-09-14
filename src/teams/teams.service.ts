@@ -490,7 +490,7 @@ export class TeamsService {
     return this.findOne(id);
   }
 
-  /** Request to join a team. */
+  /** Request to join a team or direct join if public. */
   async requestJoinTeam(userId: string, teamId: string) {
     const team = await this.teamModel.findById(teamId);
     if (!team) {
@@ -501,6 +501,43 @@ export class TeamsService {
       throw new BadRequestException('You are already a member of this team');
     }
 
+    if (team.maxMembers && team.members.length >= team.maxMembers) {
+      throw new BadRequestException('Team is at full capacity');
+    }
+
+    const visibility = (team.visibility || 'public').toLowerCase();
+
+    // If public visibility, directly add member
+    if (visibility === 'public') {
+      team.members.push(new Types.ObjectId(userId));
+
+      if (team.joinRequests) {
+        team.joinRequests = team.joinRequests.filter((r) => r.toString() !== userId);
+      }
+      if (team.invitees) {
+        team.invitees = team.invitees.filter((i) => i.toString() !== userId);
+      }
+
+      await team.save();
+
+      // Sync team chat participants
+      try {
+        await this.chatModel.updateOne(
+          { referenceId: team._id, type: 'team' },
+          { $addToSet: { participants: new Types.ObjectId(userId) } },
+        );
+      } catch (error) {
+        console.error('Failed to update team chat members after join:', error);
+      }
+
+      return {
+        success: true,
+        message: 'Joined team successfully',
+        joined: true,
+      };
+    }
+
+    // If private visibility, send join request
     if (team.joinRequests && team.joinRequests.some((r) => r.toString() === userId)) {
       throw new BadRequestException('You have already requested to join this team');
     }
@@ -532,6 +569,7 @@ export class TeamsService {
     return {
       success: true,
       message: 'Join request sent successfully',
+      joined: false,
     };
   }
 
