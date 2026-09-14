@@ -43,6 +43,19 @@ export class NotificationsService {
     private readonly userService: UsersService,
   ) { }
 
+  private isInvalidTokenError(error: any): boolean {
+    const code = error?.code || '';
+    const message = error?.message || '';
+    return (
+      code === 'messaging/invalid-argument' ||
+      code === 'messaging/invalid-registration-token' ||
+      code === 'messaging/registration-token-not-registered' ||
+      message.includes('not a valid FCM registration token') ||
+      message.includes('registration-token-not-registered') ||
+      message.includes('invalid-argument')
+    );
+  }
+
   async sendNotification(userId: string | Types.ObjectId, title: string, message: string, type?: string, data: any = {}) {
     try {
       const tokens = await this.userService.getFcmTokens([userId.toString()]);
@@ -51,7 +64,16 @@ export class NotificationsService {
         // Merge type into data for push payload
         const payload = { ...data, notificationType: type };
         for (const token of tokens) {
-          await this.firebaseService.sendPushNotification(token, title, message, payload);
+          try {
+            await this.firebaseService.sendPushNotification(token, title, message, payload);
+          } catch (error) {
+            if (this.isInvalidTokenError(error)) {
+              this.logger.warn(`Removing invalid FCM token for user ${userId}: ${token}`);
+              await this.userService.removeDeviceToken(userId, token);
+            } else {
+              this.logger.error(`Error sending push notification token for user ${userId}:`, error.stack);
+            }
+          }
         }
         this.logger.log(`Push notification sent. userId=${userId} type=${type} tokenCount=${tokens.length}`);
       } else {
@@ -82,7 +104,16 @@ export class NotificationsService {
         // Merge type into data for push payload
         const payload = { ...data, type, notificationType: type };
         for (const token of tokens) {
-          await this.firebaseService.sendPushNotification(token, title, body, payload);
+          try {
+            await this.firebaseService.sendPushNotification(token, title, body, payload);
+          } catch (error) {
+            if (this.isInvalidTokenError(error)) {
+              this.logger.warn(`Removing invalid FCM token for user ${userId}: ${token}`);
+              await this.userService.removeDeviceToken(userId, token);
+            } else {
+              this.logger.error(`Error sending push notification token for user ${userId}:`, error.stack);
+            }
+          }
         }
         this.logger.log(`Saved notification push sent. userId=${userId} type=${type} tokenCount=${tokens.length}`);
       } else {

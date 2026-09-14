@@ -260,5 +260,17 @@ export class UsersService {
     return users.map((u) => u.deviceToken as string).filter((t) => !!t);
   }
 
+  async removeDeviceToken(userId?: string | Types.ObjectId, token?: string) {
+    const filter: any = {};
+    if (userId) {
+      filter._id = new Types.ObjectId(userId);
+    }
+    if (token) {
+      filter.deviceToken = token;
+    }
+    if (Object.keys(filter).length === 0) return;
+
+    return this.userModel.updateMany(filter, { $unset: { deviceToken: 1 } });
+  }
 }
 
