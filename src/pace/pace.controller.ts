@@ -43,18 +43,25 @@ export class PaceController {
   @Get()
   @ApiOperation({ summary: 'Get Paces by type (my, joined, all)' })
   @ApiQuery({ name: 'type', required: false, enum: ['my', 'joined', 'all'], description: 'Type of Paces to retrieve' })
-  async getPaces(@Req() req, @Query('type') type?: string) {
+  @ApiQuery({ name: 'sortBy', required: false, enum: ['time', 'distance'], description: 'Field to sort by (time, distance)' })
+  @ApiQuery({ name: 'order', required: false, enum: ['asc', 'desc'], description: 'Sort order (asc for early-to-late/close-to-far, desc for late-to-early/far-to-close)' })
+  async getPaces(
+    @Req() req,
+    @Query('type') type?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('order') order?: 'asc' | 'desc'
+  ) {
     let data;
     let message = 'Paces fetched successfully';
 
     if (type === 'my') {
-      data = await this.paceService.findOwn(req.user.id);
+      data = await this.paceService.findOwn(req.user.id, sortBy, order);
       message = 'My hosted Paces fetched successfully';
     } else if (type === 'joined') {
-      data = await this.paceService.findJoinedOthers(req.user.id);
+      data = await this.paceService.findJoinedOthers(req.user.id, sortBy, order);
       message = 'Joined Paces fetched successfully';
     } else {
-      data = await this.paceService.findAllExceptOwn(req.user.id);
+      data = await this.paceService.findAllExceptOwn(req.user.id, sortBy, order);
       message = 'Available Paces fetched successfully';
     }
 

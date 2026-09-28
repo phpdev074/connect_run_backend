@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Pace, PaceDocument } from './entities/pace.entity';
 import { PaceRunPath, PaceRunPathDocument } from './entities/pace-run-path.entity';
+import { SavedPace, SavedPaceDocument } from './entities/save-pace.entity';
 import { User, UserDocument } from '../users/entities/user.entity';
 import { Match, MatchDocument } from '../matches/entities/match.entity';
 import { CreatePaceDto } from './dto/create-pace.dto';
@@ -19,6 +20,7 @@ export class PaceService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Match.name) private matchModel: Model<MatchDocument>,
     @InjectModel(PaceRunPath.name) private paceRunPathModel: Model<PaceRunPathDocument>,
+    @InjectModel(SavedPace.name) private savedPaceModel: Model<SavedPaceDocument>,
     private readonly notificationsService: NotificationsService,
     private readonly rewardsService: RewardsService,
   ) { }
@@ -111,8 +113,14 @@ export class PaceService {
   /**
    * Find all paces created by other users that are upcoming and not joined yet.
    */
-  async findAllExceptOwn(userId: string) {
+  async findAllExceptOwn(userId: string, sortBy?: string, order?: 'asc' | 'desc') {
     const userObjectId = new Types.ObjectId(userId);
+    const sortObj: any = {};
+    if (sortBy) {
+      const sortField = sortBy === 'time' ? 'startTime' : 'distance';
+      sortObj[sortField] = order === 'desc' ? -1 : 1;
+    }
+    
     return this.paceModel
       .find({
         createdBy: { $ne: userObjectId },
@@ -120,14 +128,21 @@ export class PaceService {
         status: 'upcoming',
       })
       .populate('createdBy', 'first_name last_name display_name email image')
-      .populate('members', 'first_name last_name display_name email image');
+      .populate('members', 'first_name last_name display_name email image')
+      .sort(Object.keys(sortObj).length > 0 ? sortObj : { createdAt: -1 });
   }
 
   /**
    * Find other users' paces that the logged-in user has joined (is a member of).
    */
-  async findJoinedOthers(userId: string) {
+  async findJoinedOthers(userId: string, sortBy?: string, order?: 'asc' | 'desc') {
     const userObjectId = new Types.ObjectId(userId);
+    const sortObj: any = {};
+    if (sortBy) {
+      const sortField = sortBy === 'time' ? 'startTime' : 'distance';
+      sortObj[sortField] = order === 'desc' ? -1 : 1;
+    }
+
     return this.paceModel
       .find({
         createdBy: { $ne: userObjectId },
@@ -135,21 +150,29 @@ export class PaceService {
         status: 'upcoming',
       })
       .populate('createdBy', 'first_name last_name display_name email image')
-      .populate('members', 'first_name last_name display_name email image');
+      .populate('members', 'first_name last_name display_name email image')
+      .sort(Object.keys(sortObj).length > 0 ? sortObj : { createdAt: -1 });
   }
 
   /**
    * Find all paces created by the logged-in user that are upcoming.
    */
-  async findOwn(userId: string) {
+  async findOwn(userId: string, sortBy?: string, order?: 'asc' | 'desc') {
     const userObjectId = new Types.ObjectId(userId);
+    const sortObj: any = {};
+    if (sortBy) {
+      const sortField = sortBy === 'time' ? 'startTime' : 'distance';
+      sortObj[sortField] = order === 'desc' ? -1 : 1;
+    }
+
     return this.paceModel
       .find({
         createdBy: userObjectId,
         status: 'upcoming',
       })
       .populate('createdBy', 'first_name last_name display_name email image')
-      .populate('members', 'first_name last_name display_name email image');
+      .populate('members', 'first_name last_name display_name email image')
+      .sort(Object.keys(sortObj).length > 0 ? sortObj : { createdAt: -1 });
   }
 
   /**
@@ -466,5 +489,48 @@ export class PaceService {
     }
 
     return path;
+  }
+
+  /**
+   * Toggle save or unsave for a pace
+   */
+  async toggleSavePace(userId: string, paceId: string) {
+    const userObjectId = new Types.ObjectId(userId);
+    const paceObjectId = new Types.ObjectId(paceId);
+
+    const existingSave = await this.savedPaceModel.findOne({
+      userId: userObjectId,
+      paceId: paceObjectId,
+    });
+
+    if (existingSave) {
+      await this.savedPaceModel.findByIdAndDelete(existingSave._id);
+      return { saved: false, paceId };
+    } else {
+      await this.savedPaceModel.create({
+        userId: userObjectId,
+        paceId: paceObjectId,
+      });
+      return { saved: true, paceId };
+    }
+  }
+
+  /**
+   * Get all saved paces for a user
+   */
+  async getSavedPaces(userId: string) {
+    const userObjectId = new Types.ObjectId(userId);
+    const savedRecords = await this.savedPaceModel
+      .find({ userId: userObjectId })
+      .populate({
+        path: 'paceId',
+        populate: [
+          { path: 'createdBy', select: 'first_name last_name display_name email image' },
+          { path: 'members', select: 'first_name last_name display_name email image' }
+        ]
+      })
+      .sort({ createdAt: -1 });
+
+    return savedRecords.map(record => record.paceId);
   }
 }
