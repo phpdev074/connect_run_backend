@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { MailerModule } from '@nestjs-modules/mailer';
+import { MailerModule, MailerOptions } from '@nestjs-modules/mailer';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MailService } from './mail.service';
 
@@ -10,7 +10,7 @@ import { MailService } from './mail.service';
     MailerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
+      useFactory: (config: ConfigService): MailerOptions => ({
         transport: {
           host: config.get('SMTP_HOST'),
           port: Number(config.get('SMTP_PORT')),
@@ -22,7 +22,7 @@ import { MailService } from './mail.service';
         },
         defaults: {
           from: config.get('MAIL_FROM'),
-        },
+        } as any,
       }),
     }),
   ],

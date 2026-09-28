@@ -216,7 +216,13 @@ export class PaceService {
     if (updatePaceDto.time !== undefined) pace.time = updatePaceDto.time;
     if (updatePaceDto.status !== undefined) pace.status = updatePaceDto.status;
     if (updatePaceDto.runType !== undefined) pace.runType = updatePaceDto.runType;
-
+    if (updatePaceDto.startTime !== undefined) pace.startTime = updatePaceDto.startTime;
+    if (updatePaceDto.duration !== undefined) pace.duration = updatePaceDto.duration;
+    if (updatePaceDto.targetPrice !== undefined) pace.targetPrice = updatePaceDto.targetPrice;
+    if (updatePaceDto.pricePerSpot !== undefined) pace.pricePerSpot = updatePaceDto.pricePerSpot;
+    if (updatePaceDto.maxSpots !== undefined) pace.maxSpots = updatePaceDto.maxSpots;
+    if (updatePaceDto.fitnessLevel !== undefined) pace.fitnessLevel = updatePaceDto.fitnessLevel;
+    if (updatePaceDto.streamType !== undefined) pace.streamType = updatePaceDto.streamType;
     await pace.save();
 
     // Send notifications to newly added members

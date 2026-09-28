@@ -57,6 +57,41 @@ export class CreatePaceDto {
   @IsOptional()
   members?: string[];
 
+  @ApiProperty({ example: '8:00 AM', required: false })
+  @IsString()
+  @IsOptional()
+  startTime?: string;
+
+  @ApiProperty({ example: '2 hours', required: false })
+  @IsString()
+  @IsOptional()
+  duration?: string;
+
+  @ApiProperty({ example: 100, required: false })
+  @IsNumber()
+  @IsOptional()
+  targetPrice?: number;
+
+  @ApiProperty({ example: 10, required: false })
+  @IsNumber()
+  @IsOptional()
+  pricePerSpot?: number;
+
+  @ApiProperty({ example: 20, required: false })
+  @IsNumber()
+  @IsOptional()
+  maxSpots?: number;
+
+  @ApiProperty({ example: 'Beginner', required: false })
+  @IsString()
+  @IsOptional()
+  fitnessLevel?: string;
+
+  @ApiProperty({ example: 'Livestream', required: false })
+  @IsString()
+  @IsOptional()
+  streamType?: string;
+
   @ApiProperty({ example: 'in-person', enum: ['in-person', 'virtual'], required: false })
   @IsEnum(['in-person', 'virtual'])
   @IsOptional()
