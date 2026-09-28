@@ -65,6 +65,12 @@ export class Pace {
   @Prop()
   streamType?: string;
 
+  @Prop({ type: Boolean, default: false })
+  isLive: boolean;
+
+  @Prop()
+  liveStreamId?: string;
+
   @Prop({ default: 'in-person', enum: ['in-person', 'virtual'] })
   runType: string;
 }

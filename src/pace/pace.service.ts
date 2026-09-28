@@ -246,6 +246,8 @@ export class PaceService {
     if (updatePaceDto.maxSpots !== undefined) pace.maxSpots = updatePaceDto.maxSpots;
     if (updatePaceDto.fitnessLevel !== undefined) pace.fitnessLevel = updatePaceDto.fitnessLevel;
     if (updatePaceDto.streamType !== undefined) pace.streamType = updatePaceDto.streamType;
+    if (updatePaceDto.isLive !== undefined) pace.isLive = updatePaceDto.isLive;
+    if (updatePaceDto.liveStreamId !== undefined) pace.liveStreamId = updatePaceDto.liveStreamId;
     await pace.save();
 
     // Send notifications to newly added members

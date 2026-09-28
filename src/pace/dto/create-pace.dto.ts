@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsOptional, IsArray, IsNumber, IsDateString, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsArray, IsNumber, IsDateString, IsEnum, IsBoolean } from 'class-validator';
 
 export class CreatePaceDto {
   @ApiProperty({ example: 'Morning Runners' })
@@ -91,6 +91,16 @@ export class CreatePaceDto {
   @IsString()
   @IsOptional()
   streamType?: string;
+
+  @ApiProperty({ example: false, required: false, description: 'Whether the pace has gone live' })
+  @IsBoolean()
+  @IsOptional()
+  isLive?: boolean;
+
+  @ApiProperty({ example: 'channel-12345', required: false, description: 'Information/ID needed to join the live stream' })
+  @IsString()
+  @IsOptional()
+  liveStreamId?: string;
 
   @ApiProperty({ example: 'in-person', enum: ['in-person', 'virtual'], required: false })
   @IsEnum(['in-person', 'virtual'])
