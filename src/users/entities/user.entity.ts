@@ -43,25 +43,25 @@ export class User {
   average_pace?: string;
 
   @Prop({ type: [String], default: [] })
-  preferred_days: string[];
+  preferred_days?: string[];
 
   @Prop({ type: [String], default: [] })
-  modes: string[];
+  modes?: string[];
 
   @Prop({ type: [String], default: [] })
-  interests: string[];
+  interests?: string[];
 
   @Prop()
   image?: string;
 
   @Prop({ type: [String], default: [] })
-  profile_galary: string[];
+  profile_galary?: string[];
 
   @Prop()
-  fitness_level: string;
+  fitness_level?: string;
 
   @Prop({select: false })
-  password: string;
+  password?: string;
 
   @Prop()
   phone?: string;
@@ -76,10 +76,10 @@ export class User {
   days_per_week?: number;
 
   @Prop({ type: [String], default: [] })
-  activities: string[];
+  activities?: string[];
 
   @Prop({ type: [String], default: [] })
-  fitness_goals: string[];
+  fitness_goals?: string[];
 
   @Prop()
   gym_location?: string;
@@ -94,7 +94,7 @@ export class User {
     type: { type: String, enum: ['Point'], default: 'Point' },
     coordinates: { type: [Number], default: [0, 0] },
   })
-  location: {
+  location?: {
     type: string;
     coordinates: number[];
   };
@@ -102,17 +102,20 @@ export class User {
   @Prop()
   bio?: string;
 
-  @Prop({ default: 0 })
-  points: number;
+  @Prop({ default: 0, min: 0 })
+  points?: number;
 
-  @Prop({ default: 0 })
-  total_miles: number;
+  @Prop({ default: 0, min: 0 })
+  total_miles?: number;
 
-  @Prop({ default: 0 })
-  streak: number;
+  @Prop({ default: 0, min: 0 })
+  streak?: number;
+
+  @Prop({ type: Date, required: false })
+  last_run_date?: Date;
 
   @Prop({ type: [String], default: [] })
-  badges: string[];
+  badges?: string[];
 
   @Prop({ default: true })
   isNotification?: boolean;
@@ -133,7 +136,7 @@ export class User {
   emailVerificationToken?: string;
 
   @Prop({ default: false })
-  isOnline: boolean;
+  isOnline?: boolean;
 
   @Prop()
   lastSeen?: Date;

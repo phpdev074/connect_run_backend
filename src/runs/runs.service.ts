@@ -6,6 +6,7 @@ import { Mission, MissionDocument } from '../missions/entities/mission.entity';
 import { User, UserDocument } from '../users/entities/user.entity';
 import { RunLocation, RunLocationDocument } from './entities/runLocation.entity';
 import { Match, MatchDocument } from '../matches/entities/match.entity';
+import { RecordRunDto } from './dto/record-run.dto';
 
 @Injectable()
 export class RunsService {
@@ -70,20 +71,59 @@ export class RunsService {
     return run;
   }
 
-  private async processRunCompletion(userId: string, data: any) {
+  private toDateString(date: Date | string): string {
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return '';
+    return d.toISOString().slice(0, 10);
+  }
+
+  private async processRunCompletion(userId: string, data: RecordRunDto) {
     if (data.missionId && Types.ObjectId.isValid(data.missionId)) {
       await this.missionModel.findByIdAndUpdate(data.missionId, {
         status: 'completed',
       });
     }
 
-    // Update user stats
+    const user = await this.userModel.findById(userId);
+    if (!user) return;
+
+    const distance = Number(data.distance) || 0;
+    const pointsEarned = Number(data.pointsEarned) || 0;
+
+    // --- Streak: consecutive active CALENDAR days (not per run) ---
+    const today = this.toDateString(new Date());
+    const yesterday = this.toDateString(
+      new Date(Date.now() - 24 * 60 * 60 * 1000),
+    );
+    const lastRunDate = user.last_run_date
+      ? this.toDateString(user.last_run_date)
+      : '';
+
+    let streak = user.streak || 0;
+
+    if (lastRunDate === today) {
+      // Case A: already ran today -> do not increment
+    } else if (lastRunDate === yesterday) {
+      // Case B: first run today, ran yesterday -> +1
+      streak = streak + 1;
+    } else {
+      // Case C: first run today but skipped 1+ days (or never ran) -> reset to 1
+      streak = 1;
+    }
+
+    // --- Points: never negative, credit earned points ---
+    const points = Math.max(0, user.points || 0) + pointsEarned;
+
+    // --- Total miles: round to 2 decimal places ---
+    const totalMiles = Number(
+      ((Number(user.total_miles) || 0) + distance).toFixed(2),
+    );
+
     await this.userModel.findByIdAndUpdate(userId, {
-      $inc: {
-        total_miles: data.distance,
-        points: data.pointsEarned || 50, // Default 50 pts for a run
-        streak: 1, // Increment streak (simulated)
-      },
+      points,
+      total_miles: totalMiles,
+      streak,
+      last_run_date: new Date(),
     });
   }
 
@@ -120,19 +160,28 @@ export class RunsService {
   }
 
   async getUserRuns(userId: string) {
-    return this.runModel.find({ userId: new Types.ObjectId(userId) }).sort({ date: -1 });
+    return this.runModel
+      .find({ userId: new Types.ObjectId(userId) })
+      .sort({ date: -1 });
   }
 
   async getStats(userId: string) {
-    const runs = await this.runModel.find({ userId: new Types.ObjectId(userId) });
-    const totalMiles = runs.reduce((acc, run) => acc + run.distance, 0);
-    const totalPoints = runs.reduce((acc, run) => acc + run.pointsEarned, 0);
-    // Streak logic omitted for brevity
+    const runs = await this.runModel
+      .find({ userId: new Types.ObjectId(userId) })
+      .sort({ date: -1 });
+    const user = await this.userModel.findById(userId);
+    const totalMiles = Number(
+      runs.reduce((acc, run) => acc + run.distance, 0).toFixed(2),
+    );
+    const totalPoints = Math.max(
+      0,
+      runs.reduce((acc, run) => acc + run.pointsEarned, 0),
+    );
 
     return {
       totalMiles,
       totalPoints,
-      dayStreak: 5, // Placeholder
+      dayStreak: user?.streak || 0,
     };
   }
 

@@ -44,7 +44,19 @@ export class UsersService {
   }
 
   async findById(id: string) {
-    return this.userModel.findById(id).select('-password');
+    const user = await this.userModel.findById(id).select('-password');
+    if (user) {
+      if (typeof user.points === 'number' && user.points < 0) {
+        user.points = 0;
+      }
+      if (typeof user.total_miles === 'number') {
+        user.total_miles = Number(user.total_miles.toFixed(2));
+      }
+      if (typeof user.streak === 'number' && user.streak < 0) {
+        user.streak = 0;
+      }
+    }
+    return user;
   }
 
   async findAll(query: UserSearchDto) {
