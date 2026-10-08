@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsOptional, IsArray, IsNumber, IsDateString, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsArray, IsNumber, IsDateString, IsEnum, IsBoolean } from 'class-validator';
 
 export class CreatePaceDto {
   @ApiProperty({ example: 'Morning Runners' })
@@ -56,6 +56,51 @@ export class CreatePaceDto {
   @IsArray()
   @IsOptional()
   members?: string[];
+
+  @ApiProperty({ example: '8:00 AM', required: false })
+  @IsString()
+  @IsOptional()
+  startTime?: string;
+
+  @ApiProperty({ example: '2 hours', required: false })
+  @IsString()
+  @IsOptional()
+  duration?: string;
+
+  @ApiProperty({ example: 100, required: false })
+  @IsNumber()
+  @IsOptional()
+  targetPrice?: number;
+
+  @ApiProperty({ example: 10, required: false })
+  @IsNumber()
+  @IsOptional()
+  pricePerSpot?: number;
+
+  @ApiProperty({ example: 20, required: false })
+  @IsNumber()
+  @IsOptional()
+  maxSpots?: number;
+
+  @ApiProperty({ example: 'Beginner', required: false })
+  @IsString()
+  @IsOptional()
+  fitnessLevel?: string;
+
+  @ApiProperty({ example: 'Livestream', required: false })
+  @IsString()
+  @IsOptional()
+  streamType?: string;
+
+  @ApiProperty({ example: false, required: false, description: 'Whether the pace has gone live' })
+  @IsBoolean()
+  @IsOptional()
+  isLive?: boolean;
+
+  @ApiProperty({ example: 'channel-12345', required: false, description: 'Information/ID needed to join the live stream' })
+  @IsString()
+  @IsOptional()
+  liveStreamId?: string;
 
   @ApiProperty({ example: 'in-person', enum: ['in-person', 'virtual'], required: false })
   @IsEnum(['in-person', 'virtual'])
