@@ -44,6 +44,33 @@ export class Pace {
   @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
   members: Types.ObjectId[];
 
+  @Prop()
+  startTime?: string;
+
+  @Prop()
+  duration?: string;
+
+  @Prop()
+  targetPrice?: number;
+
+  @Prop()
+  pricePerSpot?: number;
+
+  @Prop()
+  maxSpots?: number;
+
+  @Prop()
+  fitnessLevel?: string;
+
+  @Prop()
+  streamType?: string;
+
+  @Prop({ type: Boolean, default: false })
+  isLive: boolean;
+
+  @Prop()
+  liveStreamId?: string;
+
   @Prop({ default: 'in-person', enum: ['in-person', 'virtual'] })
   runType: string;
 }
